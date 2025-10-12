@@ -1,14 +1,20 @@
 import json
+import os
 import random
 from tqdm import tqdm
 
 # --- 配置区 ---
-# 定义输入文件路径
-input_file_path = 'data/medical-o1-reasoning-SFT/medical_o1_sft_Chinese.json'
+# 获取脚本所在的目录
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# 将输入文件路径定义为相对于脚本目录的路径
+input_file_path = os.path.join(script_dir, 'medical_o1_sft_Chinese.json')
+# --------------------
+
 # 定义抽样后的样本数量
 SAMPLE_SIZE = 1000
-# 定义输出文件路径 (文件名中自动包含样本数量)
-output_file_path = f'medical_sharegpt_format_sampled_{SAMPLE_SIZE}.json'
+# 定义输出文件路径 (输出文件也将保存在与脚本相同的目录中)
+output_file_path = os.path.join(script_dir, f'medical_sharegpt_format_sampled_{SAMPLE_SIZE}.json')
 
 
 try:
