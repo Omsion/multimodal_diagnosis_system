@@ -2,7 +2,9 @@ import os
 import sys
 
 # --- 配置 ---
-
+"""
+tree / F
+"""
 # 最终输出的txt文件名
 OUTPUT_FILENAME = "multimodal_dr_diagnosis_for_gemini.txt"
 
