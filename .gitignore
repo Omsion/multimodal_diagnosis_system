@@ -1,0 +1,15 @@
+/multimodal_dr_diagnosis_for_gemini.txt
+/medical-o1-reasoning-SFT/medical_o1_sft.json
+/medical-o1-reasoning-SFT/medical_o1_sft_Chinese.json
+/medical-o1-reasoning-SFT/medical_o1_sft_mix.json
+/medical-o1-reasoning-SFT/medical_o1_sft_mix_Chinese.json
+/medical-o1-reasoning-SFT/.gitattributes
+/medical-o1-reasoning-SFT/.mdl
+/medical-o1-reasoning-SFT/.msc
+/medical-o1-reasoning-SFT/.mv
+/models/Qwen-VL/
+/models/R1-7B-finetuned/
+/models/resnet50_dr_grading.pth
+/.idea/multimodal_diagnosis_system.iml
+/.idea/vcs.xml
+/.idea/workspace.xml
