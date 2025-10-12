@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>多模态智能诊断系统</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .spinner {
+      border: 4px solid #e5e7eb;
+      border-top: 4px solid #3b82f6;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
+    #logs { max-height: 200px; overflow-y: auto; font-family: monospace; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex flex-col items-center justify-center p-6">
+  <div class="w-full max-w-4xl bg-white shadow-xl rounded-2xl p-6">
+    <h1 class="text-2xl font-bold mb-4 text-center text-blue-700">多模态智能诊断系统</h1>
+
+    <!-- API 设置 & 健康检查 -->
+    <div class="flex flex-col md:flex-row md:items-center gap-2 mb-4">
+      <label for="apiUrl" class="font-medium">API地址:</label>
+      <input type="text" id="apiUrl" class="border rounded p-2 flex-1" placeholder="http://localhost:8000">
+      <button id="saveApiBtn" class="bg-gray-200 px-3 py-1 rounded hover:bg-gray-300">保存</button>
+      <button id="checkHealthBtn" class="bg-blue-100 px-3 py-1 rounded hover:bg-blue-200">检查状态</button>
+      <button id="reloadKBBtn" class="bg-green-100 px-3 py-1 rounded hover:bg-green-200">重新加载知识库</button>
+      <button id="viewLogsBtn" class="bg-yellow-100 px-3 py-1 rounded hover:bg-yellow-200">查看日志</button>
+      <span id="healthStatus" class="text-gray-600 font-medium">状态未知</span>
+    </div>
+
+    <!-- 模型状态 -->
+    <div id="modelStatus" class="hidden border rounded-lg p-4 mb-4 bg-gray-50">
+      <h3 class="font-semibold mb-2">模型加载状态</h3>
+      <ul class="space-y-1 text-sm">
+        <li><strong>DR分级模型:</strong> <span id="statusDR"></span></li>
+        <li><strong>Qwen-VL模型:</strong> <span id="statusQwen"></span></li>
+        <li><strong>R1-7B模型:</strong> <span id="statusR1"></span></li>
+        <li><strong>RAG知识库:</strong> <span id="statusRAG"></span></li>
+      </ul>
+    </div>
+
+    <!-- 上传表单 -->
+    <div class="flex flex-col gap-4 items-center">
+      <input type="file" id="imageInput" accept="image/*" class="p-2 border rounded-md w-full">
+      <img id="previewImg" class="hidden max-h-64 object-contain rounded-lg border p-2" />
+      <div class="flex gap-4">
+        <label class="flex items-center gap-2"><input type="checkbox" id="enableRag" checked /> 启用RAG知识检索</label>
+        <label class="flex items-center gap-2"><input type="checkbox" id="enableCot" checked /> 启用CoT推理</label>
+      </div>
+      <button id="uploadBtn" class="bg-blue-600 text-white px-6 py-2 rounded-xl hover:bg-blue-700">上传并诊断</button>
+    </div>
+
+    <!-- 加载动画 -->
+    <div id="loading" class="hidden flex flex-col items-center mt-6">
+      <div class="spinner"></div>
+      <p class="mt-2 text-gray-600">正在诊断，请稍候...</p>
+    </div>
+
+    <!-- 诊断结果 -->
+    <div id="result" class="mt-6 hidden">
+      <h2 class="text-xl font-semibold mb-2">诊断结果</h2>
+      <div class="border rounded-lg p-4 space-y-3">
+        <p><strong>DR分级:</strong> <span id="drGrade" class="text-blue-700"></span></p>
+        <p><strong>置信度:</strong> <span id="confidence" class="text-blue-700"></span></p>
+        <p><strong>病灶描述:</strong></p><pre id="lesionDesc" class="bg-gray-100 p-3 rounded text-sm whitespace-pre-wrap"></pre>
+        <p><strong>CoT推理:</strong></p><pre id="cotReasoning" class="bg-gray-100 p-3 rounded text-sm whitespace-pre-wrap"></pre>
+        <p><strong>检索到的知识:</strong></p><ul id="retrievedKnowledge" class="list-disc list-inside space-y-1"></ul>
+        <p><strong>治疗建议:</strong></p><ul id="recommendations" class="list-disc list-inside space-y-1"></ul>
+      </div>
+    </div>
+
+    <!-- 日志面板 -->
+    <div id="logPanel" class="hidden mt-6 border rounded-lg p-4 bg-gray-50">
+      <h3 class="font-semibold mb-2">后端日志</h3>
+      <pre id="logs" class="text-xs text-gray-800"></pre>
+    </div>
+  </div>
+
+  <script>
+    const apiUrlInput = document.getElementById("apiUrl");
+    const healthStatus = document.getElementById("healthStatus");
+    const modelStatusDiv = document.getElementById("modelStatus");
+    const statusDR = document.getElementById("statusDR");
+    const statusQwen = document.getElementById("statusQwen");
+    const statusR1 = document.getElementById("statusR1");
+    const statusRAG = document.getElementById("statusRAG");
+    const logsContainer = document.getElementById("logs");
+    const logPanel = document.getElementById("logPanel");
+
+    const savedApiUrl = localStorage.getItem("api_url") || "http://localhost:8000";
+    apiUrlInput.value = savedApiUrl;
+
+    document.getElementById("saveApiBtn").addEventListener("click", () => {
+      localStorage.setItem("api_url", apiUrlInput.value.trim());
+      alert("API地址已保存: " + apiUrlInput.value);
+      checkApiHealth();
+    });
+
+    document.getElementById("checkHealthBtn").addEventListener("click", checkApiHealth);
+    document.getElementById("reloadKBBtn").addEventListener("click", reloadKnowledgeBase);
+    document.getElementById("viewLogsBtn").addEventListener("click", fetchLogs);
+
+    async function checkApiHealth() {
+      const apiUrl = apiUrlInput.value.trim().replace(/\/$/, "");
+      healthStatus.textContent = "检查中...";
+      healthStatus.className = "text-gray-600 font-medium";
+      modelStatusDiv.classList.add("hidden");
+      try {
+        const res = await fetch(`${apiUrl}/api/health`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        healthStatus.textContent = "后端健康";
+        healthStatus.className = "text-green-600 font-semibold";
+        modelStatusDiv.classList.remove("hidden");
+        setModelStatus(statusDR, data.models.dr_grading);
+        setModelStatus(statusQwen, data.models.qwen_vl);
+        setModelStatus(statusR1, data.models.r1_7b);
+        setModelStatus(statusRAG, data.models.rag);
+      } catch {
+        healthStatus.textContent = "后端不可用";
+        healthStatus.className = "text-red-600 font-semibold";
+        modelStatusDiv.classList.add("hidden");
+      }
+    }
+
+    async function reloadKnowledgeBase() {
+      const apiUrl = apiUrlInput.value.trim().replace(/\/$/, "");
+      try {
+        const res = await fetch(`${apiUrl}/api/knowledge/update`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify([])
+        });
+        if (!res.ok) throw new Error();
+        alert("知识库已更新 ✅");
+      } catch {
+        alert("知识库更新失败 ❌");
+      }
+    }
+
+    async function fetchLogs() {
+      const apiUrl = apiUrlInput.value.trim().replace(/\/$/, "");
+      try {
+        const res = await fetch(`${apiUrl}/api/logs`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        logsContainer.textContent = data.logs.join("\n");
+        logPanel.classList.remove("hidden");
+      } catch {
+        alert("无法获取日志 ❌");
+      }
+    }
+
+    function setModelStatus(el, ok) {
+      el.textContent = ok ? "已加载" : "未加载";
+      el.className = ok ? "text-green-600 font-semibold" : "text-red-600 font-semibold";
+    }
+
+    window.addEventListener("load", checkApiHealth);
+
+    document.getElementById("imageInput").addEventListener("change", e => {
+      const file = e.target.files[0], previewImg = document.getElementById("previewImg");
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = ev => { previewImg.src = ev.target.result; previewImg.classList.remove("hidden"); };
+        reader.readAsDataURL(file);
+      } else previewImg.classList.add("hidden");
+    });
+
+    document.getElementById("uploadBtn").addEventListener("click", async () => {
+      const file = document.getElementById("imageInput").files[0];
+      if (!file) return alert("请先选择一张DR图像！");
+      const enableRag = document.getElementById("enableRag").checked;
+      const enableCot = document.getElementById("enableCot").checked;
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("enable_rag", enableRag);
+      formData.append("enable_cot", enableCot);
+      const loading = document.getElementById("loading"), resultDiv = document.getElementById("result");
+      loading.classList.remove("hidden"); resultDiv.classList.add("hidden");
+      try {
+        const apiUrl = apiUrlInput.value.trim().replace(/\/$/, "");
+        const response = await fetch(`${apiUrl}/api/diagnose`, { method: "POST", body: formData });
+        if (!response.ok) throw new Error("诊断请求失败");
+        const data = await response.json();
+        document.getElementById("drGrade").textContent = `${data.dr_grade} (${data.dr_grade_desc})`;
+        document.getElementById("confidence").textContent = (data.confidence * 100).toFixed(2) + "%";
+        document.getElementById("lesionDesc").textContent = data.lesion_description;
+        document.getElementById("cotReasoning").textContent = data.cot_reasoning;
+        document.getElementById("retrievedKnowledge").innerHTML = data.retrieved_knowledge.map(k=>`<li>${k}</li>`).join("");
+        document.getElementById("recommendations").innerHTML = data.recommendations.map(r=>`<li>${r}</li>`).join("");
+        resultDiv.classList.remove("hidden");
+      } catch (err) {
+        alert("诊断失败: " + err.message);
+      } finally {
+        loading.classList.add("hidden");
+      }
+    });
+  </script>
+</body>
+</html>

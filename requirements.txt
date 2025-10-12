@@ -1,0 +1,16 @@
+fastapi
+uvicorn[standard]
+python-multipart
+langchain
+langchain-community
+langchain-huggingface
+faiss-cpu
+sentence-transformers
+transformers
+torch
+Pillow
+requests
+accelerate
+bitsandbytes
+pydantic-settings  # 新增
+peft             # 新增
