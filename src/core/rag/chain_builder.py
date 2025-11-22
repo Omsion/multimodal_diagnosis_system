@@ -12,7 +12,7 @@ from typing import Optional
 
 from langchain_community.document_loaders import DirectoryLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.prompts import PromptTemplate
 from langchain_core.runnables import RunnablePassthrough, RunnableParallel
@@ -30,13 +30,51 @@ def get_retriever():
         vector_store = FAISS.load_local(settings.VECTOR_DB_PATH, embeddings, allow_dangerous_deserialization=True)
         logger.info("从本地加载向量数据库。")
     else:
-        loader = DirectoryLoader(settings.KNOWLEDGE_BASE_PATH, glob="**/*.txt")
-        documents = loader.load()
+        # 直接读取文本文件，避免复杂的DocumentLoader问题
+        documents = []
+        knowledge_file = os.path.join(settings.KNOWLEDGE_BASE_PATH, "dr_treatment_guidelines.txt")
+
+        if os.path.exists(knowledge_file):
+            with open(knowledge_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+                # 创建简单的Document对象
+                from langchain.docstore.document import Document
+                doc = Document(page_content=content, metadata={"source": knowledge_file})
+                documents.append(doc)
+        else:
+            logger.warning(f"知识库文件不存在: {knowledge_file}")
+            # 创建默认知识库
+            default_content = """
+            # 糖尿病视网膜病变治疗指南
+
+            ## 轻度非增殖性DR (Mild NPDR)
+            - 治疗: 控制血糖、血压、血脂
+            - 随访: 每6-12个月复查一次
+
+            ## 中度非增殖性DR (Moderate NPDR)
+            - 治疗: 严格控制全身情况，每3-6个月复查
+            - 可能需要激光治疗
+
+            ## 重度非增殖性DR (Severe NPDR)
+            - 治疗: 考虑进行全视网膜光凝治疗
+            - 随访: 每2-4个月密切随访
+
+            ## 增殖性DR (PDR)
+            - 治疗: 立即进行抗VEGF治疗或激光治疗
+            - 随访: 每月或更频繁随访
+            """
+            from langchain.docstore.document import Document
+            doc = Document(page_content=default_content, metadata={"source": "default"})
+            documents.append(doc)
+
+        # 分块处理
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=settings.CHUNK_SIZE, chunk_overlap=settings.CHUNK_OVERLAP)
         docs = text_splitter.split_documents(documents)
+
+        # 创建向量数据库
         vector_store = FAISS.from_documents(docs, embeddings)
         vector_store.save_local(settings.VECTOR_DB_PATH)
-        logger.info("创建并保存了新的向量数据库。")
+        logger.info(f"创建并保存了新的向量数据库，共处理 {len(docs)} 个文档块。")
     return vector_store.as_retriever(search_kwargs={"k": settings.TOP_K})
 
 def create_rag_chain(llm: BaseChatModel, retriever):

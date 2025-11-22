@@ -6,7 +6,10 @@
       "Bash(mv:*)",
       "Bash(src/core/vision/vision_processors.py)",
       "Bash(tree:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(python scripts/init_vector_db.py:*)",
+      "Bash(pip install:*)",
+      "Bash(python:*)"
     ],
     "deny": [],
     "ask": []

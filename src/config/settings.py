@@ -12,7 +12,8 @@
 
 import os
 from typing import Dict, List, Optional, Any
-from pydantic import BaseSettings, Field, validator
+from pydantic import Field, validator
+from pydantic_settings import BaseSettings
 from enum import Enum
 
 class LogLevel(str, Enum):
@@ -92,7 +93,7 @@ class Settings(BaseSettings):
         description="文本嵌入模型"
     )
     VECTOR_DB_PATH: str = Field(
-        "./vector_db",
+        "./data/vector_db",
         description="向量数据库存储路径"
     )
     KNOWLEDGE_BASE_PATH: str = Field(
