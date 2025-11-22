@@ -1,147 +1,478 @@
+#!/usr/bin/env python3
+"""
+项目代码汇集脚本 - 为Google Gemini API准备完整项目文档
+
+该脚本会递归遍历整个项目目录，生成：
+1. 完整的项目目录树形结构
+2. 所有Python文件的完整代码内容
+
+生成的文件将包含项目的完整实现，便于输入给Gemini等大语言模型进行分析。
+"""
+
 import os
 import sys
-
-# --- 配置 ---
-"""
-tree / F
-"""
-# 最终输出的txt文件名
-OUTPUT_FILENAME = "multimodal_dr_diagnosis_for_gemini.txt"
-
-# 需要从聚合中排除的目录和文件。
-# 这可以防止包含虚拟环境、数据、模型、Git历史等无关内容。
-EXCLUDED_DIRS = {
-    '__pycache__',
-    '.git',
-    '.idea',
-    '.vscode',
-    'venv',
-    '.venv',
-    'knowledge_base',  # 包含私有知识，不是源代码
-    'models',  # 包含大型模型文件，不是源代码
-    'vector_db',  # 包含生成的向量数据库，不是源代码
-}
-EXCLUDED_FILES = {
-    'aggregate_for_gemini.py',  # 排除此脚本自身
-    '.env',  # 排除敏感配置
-}
-
-# 引导语 (Prompt)，为AI提供精准的项目背景和任务指令。
-# 这是本脚本最核心的部分，需要精准描述项目结构和目标。
-GEMINI_PROMPT = """
-Hello Gemini. I need your expert help with my Python project for a multi-modal medical diagnosis system.
-
-Your Role:
-Act as an expert AI engineer and Python developer with deep specialization in multi-modal systems, computer vision, natural language processing (NLP), and the implementation of Retrieval-Augmented Generation (RAG) pipelines using LangChain and FastAPI.
-
-Project Context:
-The code I'm providing is a complete system for **Multi-Modal Diabetic Retinopathy (DR) Diagnosis**. It's designed to simulate a clinical diagnostic workflow by integrating computer vision models with a Large Language Model (LLM) powered by a private knowledge base.
-
-The project follows a sophisticated, decoupled architecture:
-1.  **Configuration (`settings.py`):** Centralized Pydantic settings manage all model paths and parameters, allowing easy configuration via a `.env` file.
-2.  **Vision Processing (`vision_processors.py`):** This module is responsible for all visual tasks. It contains:
-    *   A fine-tuned **ResNet50** model for DR grading (classifying the severity).
-    *   A Visual Language Model (**Qwen-VL**) to generate descriptive text about key lesions from the fundus image.
-3.  **LLM Loading (`llm_loader.py`):** Loads a fine-tuned Large Language Model (**R1-7B with LoRA**) and wraps it into a standard LangChain-compatible component for seamless integration.
-4.  **RAG Pipeline (`rag_chain_builder.py`):** This is the core of the NLP logic. It uses **LangChain Expression Language (LCEL)** to build a RAG chain that:
-    *   Loads private medical guidelines from the `knowledge_base/` directory.
-    *   Creates a vector store using FAISS for efficient retrieval.
-    *   Defines a sophisticated prompt template that guides the LLM to perform Chain-of-Thought (CoT) reasoning.
-5.  **API Service (`main.py`):** A **FastAPI** application serves as the central controller. It exposes a single `/diagnose` endpoint that:
-    *   Receives an uploaded fundus image.
-    *   Orchestrates the calls to the vision processing modules (ResNet50 and Qwen-VL).
-    *   Invokes the RAG chain with the results from the vision models.
-    *   Returns a structured, traceable, and clinically relevant diagnostic report in JSON format.
-6.  **Client Script (`run_diagnosis.py`):** A command-line tool to easily test the entire system by sending an image to the FastAPI server and printing the final report.
-
-Your Task:
-
-1.  **Analyze and Understand:** Carefully read and fully comprehend the entire Python codebase provided below. The code is split into multiple files, and you must understand how they interact. The main entry point for the service is `main.py`, and for testing is `run_diagnosis.py`.
-
-2.  **Wait for Instructions:** After you have fully processed all the code, simply respond with: "I have analyzed the complete multi-modal DR diagnosis system. I understand the workflow, from visual analysis to the RAG-based generation of traceable diagnostic reports. I am ready to assist. What is your question?"
-
-3.  **Assist Me:** Once you've given the confirmation message, I will ask you questions. You should then help me with tasks such as:
-    *   Debugging specific errors in any part of the pipeline.
-    *   Explaining complex parts of the code (e.g., the LCEL chain construction in `rag_chain_builder.py`).
-    *   Suggesting code improvements for better performance, async handling, or modularity.
-    *   Refactoring the code to follow different design patterns.
-    *   Adding new features, such as caching mechanisms for the RAG retriever or integrating different VLM models.
-
-Code Structure:
-The complete source code is provided below. Each file is clearly delimited by `--- START OF FILE: [filepath] ---` and `--- END OF FILE: [filepath] ---` markers.
-"""
+from pathlib import Path
+from datetime import datetime
+from typing import List, Set, Optional
+import argparse
 
 
-def aggregate_scripts():
+class ProjectAggregator:
+    """项目代码汇集器
+
+    负责收集整个项目的结构信息和代码文件，生成单一的综合文档。
     """
-    递归地查找项目目录下的所有.py文件，并将它们的内容
-    合并到一个带有引导性Prompt的txt文件中。
-    """
-    try:
-        # 假设此脚本位于项目根目录
-        project_root = os.path.dirname(os.path.abspath(__file__))
 
-        print(f"项目根目录: {project_root}")
-        print(f"开始聚合.py文件...")
+    def __init__(self,
+                 root_dir: Path,
+                 output_file: str = "multimodal_dr_diagnosis_for_gemini.txt",
+                 include_patterns: Optional[List[str]] = None,
+                 exclude_dirs: Optional[List[str]] = None):
+        """初始化项目汇集器
 
-        py_files_to_aggregate = []
-        for root, dirs, files in os.walk(project_root, topdown=True):
-            # 修改dirs列表可以阻止os.walk深入到被排除的目录中
-            dirs[:] = [d for d in dirs if d not in EXCLUDED_DIRS]
+        Args:
+            root_dir: 项目根目录
+            output_file: 输出文件名
+            include_patterns: 需要包含的文件模式列表 (默认: ["*.py"])
+            exclude_dirs: 需要排除的目录列表
+        """
+        self.root_dir = Path(root_dir).resolve()
+        self.output_file = output_file
+        self.include_patterns = include_patterns or ["*.py"]
+        self.exclude_dirs = set(exclude_dirs or [
+            ".git", "__pycache__", ".idea", ".vscode", "node_modules",
+            ".pytest_cache", ".coverage", "htmlcov", "dist", "build"
+        ])
+
+        # 统计信息
+        self.total_files = 0
+        self.total_size = 0
+        self.processed_files = []
+
+        print(f"项目根目录: {self.root_dir}")
+        print(f"输出文件: {self.output_file}")
+
+    def is_excluded(self, path: Path) -> bool:
+        """检查路径是否应该被排除
+
+        Args:
+            path: 要检查的路径
+
+        Returns:
+            bool: True表示应该排除
+        """
+        # 检查是否在排除的目录中
+        for part in path.parts:
+            if part in self.exclude_dirs:
+                return True
+        return False
+
+    def should_include_file(self, file_path: Path) -> bool:
+        """检查文件是否应该被包含
+
+        Args:
+            file_path: 文件路径
+
+        Returns:
+            bool: True表示应该包含
+        """
+        if self.is_excluded(file_path):
+            return False
+
+        # 检查文件扩展名
+        for pattern in self.include_patterns:
+            if file_path.match(pattern):
+                return True
+        return False
+
+    def generate_tree_structure(self, max_depth: int = 3) -> str:
+        """生成项目目录树形结构
+
+        Args:
+            max_depth: 显示的最大深度
+
+        Returns:
+            str: 格式化的树形结构字符串
+        """
+        tree_lines = []
+        tree_lines.append("📁 项目目录结构:")
+        tree_lines.append("=" * 60)
+
+        def _build_tree(directory: Path, prefix: str = "", depth: int = 0) -> None:
+            """递归构建树形结构
+
+            Args:
+                directory: 当前目录
+                prefix: 前缀字符串
+                depth: 当前深度
+            """
+            if depth > max_depth:
+                tree_lines.append(f"{prefix}... (最大深度 {max_depth})")
+                return
+
+            if self.is_excluded(directory):
+                return
+
+            try:
+                # 获取目录内容并排序
+                items = sorted([item for item in directory.iterdir()
+                              if not self.is_excluded(item)],
+                             key=lambda x: (x.is_file(), x.name.lower()))
+
+                for i, item in enumerate(items):
+                    is_last = i == len(items) - 1
+                    current_prefix = "└── " if is_last else "├── "
+
+                    if item.is_dir():
+                        tree_lines.append(f"{prefix}{current_prefix}📁 {item.name}/")
+                        next_prefix = prefix + ("    " if is_last else "│   ")
+                        _build_tree(item, next_prefix, depth + 1)
+                    else:
+                        # 显示文件图标
+                        icon = self._get_file_icon(item)
+                        tree_lines.append(f"{prefix}{current_prefix}{icon} {item.name}")
+
+            except PermissionError:
+                tree_lines.append(f"{prefix}└── [权限不足]")
+
+        _build_tree(self.root_dir)
+        return "\n".join(tree_lines)
+
+    def _get_file_icon(self, file_path: Path) -> str:
+        """获取文件对应的图标
+
+        Args:
+            file_path: 文件路径
+
+        Returns:
+            str: 文件图标emoji
+        """
+        suffix = file_path.suffix.lower()
+        icon_map = {
+            ".py": "🐍",
+            ".js": "🟨",
+            ".ts": "🔷",
+            ".json": "📋",
+            ".yaml": "📄",
+            ".yml": "📄",
+            ".md": "📝",
+            ".txt": "📄",
+            ".csv": "📊",
+            ".png": "🖼️",
+            ".jpg": "🖼️",
+            ".jpeg": "🖼️",
+            ".gif": "🖼️",
+            ".pdf": "📕",
+            ".html": "🌐",
+            ".css": "🎨",
+            ".sql": "🗃️",
+            ".sh": "💻",
+            ".bat": "💻",
+            ".ps1": "💻",
+        }
+        return icon_map.get(suffix, "📄")
+
+    def collect_python_files(self) -> List[Path]:
+        """收集所有Python文件
+
+        Returns:
+            List[Path]: Python文件路径列表
+        """
+        python_files = []
+
+        print("搜索Python文件...")
+        for root, dirs, files in os.walk(self.root_dir):
+            # 过滤掉排除的目录
+            dirs[:] = [d for d in dirs if not self.is_excluded(Path(root) / d)]
 
             for file in files:
-                if file.endswith('.py') and file not in EXCLUDED_FILES:
-                    # 获取相对于项目根的路径用于在输出文件中标记，更清晰
-                    relative_path = os.path.relpath(os.path.join(root, file), project_root)
-                    py_files_to_aggregate.append(relative_path)
+                file_path = Path(root) / file
+                if self.should_include_file(file_path):
+                    python_files.append(file_path)
 
-        # 排序以确保每次运行生成的文件内容顺序一致
-        py_files_to_aggregate.sort()
+        print(f"找到 {len(python_files)} 个Python文件")
+        return sorted(python_files)
 
-        if not py_files_to_aggregate:
-            print("错误: 未找到任何可供聚合的.py文件。请确保此脚本位于项目根目录下且未被排除。")
-            return
+    def format_file_content(self, file_path: Path) -> str:
+        """格式化文件内容
 
-        print(f"\n即将聚合以下 {len(py_files_to_aggregate)} 个文件:")
-        for rel_path in py_files_to_aggregate:
-            print(f"- {rel_path}")
+        Args:
+            file_path: 文件路径
 
-        # 开始写入输出文件
-        output_filepath = os.path.join(project_root, OUTPUT_FILENAME)
-        with open(output_filepath, 'w', encoding='utf-8') as outfile:
-            # 1. 写入引导语
-            outfile.write(GEMINI_PROMPT)
+        Returns:
+            str: 格式化后的文件内容
+        """
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+        except UnicodeDecodeError:
+            try:
+                with open(file_path, 'r', encoding='gbk') as f:
+                    content = f.read()
+            except UnicodeDecodeError:
+                return f"// 无法读取文件 {file_path}: 编码错误"
+        except Exception as e:
+            return f"// 读取文件 {file_path} 时出错: {str(e)}"
 
-            # 2. 在引导语后附上被聚合的文件列表，使其更清晰
-            outfile.write("\n\n**Aggregated Files:**\n")
-            for rel_path in py_files_to_aggregate:
-                outfile.write(f"- `{rel_path.replace(os.sep, '/')}`\n")
-            outfile.write("\n" + "=" * 80 + "\n")
-            outfile.write("--- START OF AGGREGATED CODE ---\n" + "=" * 80 + "\n\n")
+        # 获取相对路径
+        rel_path = file_path.relative_to(self.root_dir)
 
-            # 3. 依次读取每个文件并写入
-            for rel_path in py_files_to_aggregate:
-                absolute_path = os.path.join(project_root, rel_path)
-                try:
-                    with open(absolute_path, 'r', encoding='utf-8') as infile:
-                        # 使用相对路径和正斜杠作为文件标记
-                        clean_rel_path = rel_path.replace(os.sep, '/')
-                        outfile.write(f"--- START OF FILE: {clean_rel_path} ---\n\n")
-                        outfile.write(infile.read())
-                        outfile.write(f"\n\n--- END OF FILE: {clean_rel_path} ---\n\n\n")
-                except Exception as e:
-                    error_message = f"--- ERROR READING FILE: {rel_path} ---\n"
-                    error_message += f"--- REASON: {str(e)} ---\n\n"
-                    outfile.write(error_message)
-                    print(f"\n警告: 读取文件 {rel_path} 时发生错误: {e}")
+        # 构建文件头部
+        header = [
+            "=" * 80,
+            f"📁 文件路径: {rel_path}",
+            f"📏 文件大小: {len(content)} 字节",
+            f"🕒 最后修改: {datetime.fromtimestamp(file_path.stat().st_mtime).strftime('%Y-%m-%d %H:%M:%S')}",
+            "=" * 80,
+            ""
+        ]
 
-        print(f"\n✅ **成功!** 已将 {len(py_files_to_aggregate)} 个脚本合并到: {output_filepath}")
-        print("您现在可以将此文件的内容粘贴到 Gemini 中。")
+        # 如果文件为空，添加提示
+        if not content.strip():
+            content = "# 此文件为空"
 
+        return "\n".join(header) + content + "\n\n"
+
+    def generate_summary(self, python_files: List[Path]) -> str:
+        """生成项目统计摘要
+
+        Args:
+            python_files: Python文件列表
+
+        Returns:
+            str: 格式化的统计摘要
+        """
+        total_lines = 0
+        total_chars = 0
+        file_stats = []
+
+        for file_path in python_files:
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                lines = len(content.splitlines())
+                chars = len(content)
+                total_lines += lines
+                total_chars += chars
+                file_stats.append({
+                    'path': file_path.relative_to(self.root_dir),
+                    'lines': lines,
+                    'chars': chars
+                })
+            except:
+                pass
+
+        summary = [
+            "📊 项目统计信息:",
+            "=" * 60,
+            f"🐍 Python文件总数: {len(python_files)}",
+            f"📝 总代码行数: {total_lines:,}",
+            f"💾 总字符数: {total_chars:,}",
+            f"📈 平均每文件行数: {total_lines // len(python_files) if python_files else 0}",
+            ""
+        ]
+
+        # 添加最大的10个文件
+        if file_stats:
+            summary.append("📋 最大的10个Python文件:")
+            file_stats.sort(key=lambda x: x['lines'], reverse=True)
+            for i, stat in enumerate(file_stats[:10], 1):
+                summary.append(f"  {i:2d}. {stat['path']} ({stat['lines']} 行)")
+
+        summary.append("")
+        return "\n".join(summary)
+
+    def run(self) -> None:
+        """执行项目汇集任务"""
+        print("开始汇集项目代码...")
+        start_time = datetime.now()
+
+        # 创建输出目录
+        output_path = self.root_dir / self.output_file
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # 收集内容
+        content_sections = []
+
+        # 1. 添加头部信息和Gemini引导语
+        header = [
+            "#" * 80,
+            "# 多模态医学影像诊断系统 - 完整项目代码",
+            "#" * 80,
+            f"# 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            f"# 项目根目录: {self.root_dir}",
+            f"# 输出文件: {self.output_file}",
+            f"# 目标模型: Google Gemini",
+            "#" * 80,
+            ""
+        ]
+        content_sections.append("\n".join(header))
+
+        # 添加Gemini引导语
+        gemini_prompt = self._generate_gemini_prompt()
+        content_sections.append(gemini_prompt)
+
+        # 2. 生成项目目录树
+        print("生成项目目录结构...")
+        content_sections.append(self.generate_tree_structure())
+        content_sections.append("\n\n")
+
+        # 3. 收集并格式化所有Python文件
+        python_files = self.collect_python_files()
+        content_sections.append(self.generate_summary(python_files))
+
+        print("读取Python文件内容...")
+        content_sections.append("\n" + "=" * 80 + "\n")
+        content_sections.append("Python代码文件详细内容:\n")
+
+        for i, file_path in enumerate(python_files, 1):
+            print(f"  ({i}/{len(python_files)}) 处理: {file_path.relative_to(self.root_dir)}")
+            content_sections.append(self.format_file_content(file_path))
+            self.processed_files.append(file_path)
+
+        # 4. 添加结束标记
+        footer = [
+            "=" * 80,
+            "# 项目代码汇集完成",
+            f"# 统计: {len(python_files)} 个Python文件",
+            f"# 用时: {(datetime.now() - start_time).total_seconds():.2f} 秒",
+            "=" * 80
+        ]
+        content_sections.append("\n".join(footer))
+
+        # 写入输出文件
+        print(f"写入输出文件: {output_path}")
+        with open(output_path, 'w', encoding='utf-8') as f:
+            f.write("\n".join(content_sections))
+
+        # 完成信息
+        end_time = datetime.now()
+        duration = (end_time - start_time).total_seconds()
+
+        print("项目代码汇集完成!")
+        print(f"输出文件: {output_path}")
+        print(f"处理文件数: {len(python_files)}")
+        print(f"输出文件大小: {output_path.stat().st_size / 1024 / 1024:.2f} MB")
+        print(f"总用时: {duration:.2f} 秒")
+
+    def _generate_gemini_prompt(self) -> str:
+        """生成针对Gemini的引导语
+
+        Returns:
+            str: Gemini引导语
+        """
+        return """
+🤖 Gemini AI 引导语:
+
+Hello Gemini! I need your expert help with my Python project for a multi-modal medical diagnosis system.
+
+📋 Your Role:
+Act as an expert AI engineer and Python developer with deep specialization in:
+- Multi-modal systems (vision + language)
+- Computer vision and medical image analysis
+- Natural language processing and RAG systems
+- LangChain and FastAPI framework development
+- PyTorch and transformer models
+
+🏥 Project Context:
+The code I'm providing is a complete system for **Multi-Modal Diabetic Retinopathy (DR) Diagnosis**.
+It integrates computer vision with Large Language Models to provide intelligent medical diagnosis.
+
+🏗️ System Architecture:
+1. **Configuration Management** (`settings.py`): Centralized Pydantic settings for model paths and parameters
+2. **Vision Processing** (`vision_processors.py`):
+   - ResNet50 model for DR grading and classification
+   - Qwen-VL visual language model for generating lesion descriptions
+3. **LLM Integration** (`llm_loader.py`): R1-7B model with LoRA fine-tuning, LangChain compatible
+4. **RAG Pipeline** (`rag_chain_builder.py`): Advanced retrieval-augmented generation using:
+   - FAISS vector store for medical knowledge retrieval
+   - LangChain Expression Language (LCEL) for chain construction
+   - Chain-of-Thought reasoning prompts
+5. **FastAPI Service** (`main.py`): RESTful API with `/diagnose` endpoint for complete workflow
+6. **Tools & Utilities** (`utils/`): Helper functions for data processing and system operations
+
+🎯 Your Task:
+1. **Analyze & Understand**: Comprehend the entire codebase, understanding component interactions
+2. **Confirm Understanding**: Respond with "I have analyzed the complete multi-modal DR diagnosis system and understand the workflow from visual analysis to RAG-based diagnostic report generation. I am ready to assist. What would you like me to help with?"
+3. **Provide Assistance**: Help with debugging, code improvements, architecture suggestions, feature additions, and optimization
+
+📁 Code Structure:
+All Python files are provided below with clear file path delimiters and content formatting.
+
+"""
+
+
+def main():
+    """主函数"""
+    parser = argparse.ArgumentParser(
+        description="汇集项目代码到单一文件，便于输入给Gemini等大语言模型",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+示例用法:
+  python aggregate_for_gemini.py
+  python aggregate_for_gemini.py --output my_project.txt
+  python aggregate_for_gemini.py --include "*.py" "*.yaml" "*.md"
+        """
+    )
+
+    parser.add_argument(
+        "--output", "-o",
+        default="multimodal_dr_diagnosis_for_gemini.txt",
+        help="输出文件名 (默认: multimodal_dr_diagnosis_for_gemini.txt)"
+    )
+
+    parser.add_argument(
+        "--include", "-i",
+        nargs="*",
+        default=["*.py"],
+        help="要包含的文件模式 (默认: ['*.py'])"
+    )
+
+    parser.add_argument(
+        "--exclude", "-e",
+        nargs="*",
+        default=[".git", "__pycache__", ".idea", ".vscode", "node_modules"],
+        help="要排除的目录 (默认: ['.git', '__pycache__', '.idea', '.vscode', 'node_modules'])"
+    )
+
+    parser.add_argument(
+        "--root", "-r",
+        default=".",
+        help="项目根目录 (默认: 当前目录)"
+    )
+
+    parser.add_argument(
+        "--depth", "-d",
+        type=int,
+        default=5,
+        help="目录树显示的最大深度 (默认: 5)"
+    )
+
+    args = parser.parse_args()
+
+    # 检查根目录是否存在
+    root_dir = Path(args.root)
+    if not root_dir.exists():
+        print(f"错误: 根目录不存在: {root_dir}")
+        sys.exit(1)
+
+    # 创建并运行汇集器
+    aggregator = ProjectAggregator(
+        root_dir=root_dir,
+        output_file=args.output,
+        include_patterns=args.include,
+        exclude_dirs=args.exclude
+    )
+
+    try:
+        aggregator.run()
+    except KeyboardInterrupt:
+        print("\n用户中断操作")
+        sys.exit(1)
     except Exception as e:
-        print(f"\n❌ **发生严重错误:** {e}")
+        print(f"运行时错误: {e}")
         sys.exit(1)
 
 
 if __name__ == "__main__":
-    aggregate_scripts()
+    main()
