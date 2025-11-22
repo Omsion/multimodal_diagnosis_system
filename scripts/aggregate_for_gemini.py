@@ -24,19 +24,26 @@ class ProjectAggregator:
     """
 
     def __init__(self,
-                 root_dir: Path,
+                 root_dir: Optional[Path] = None,
                  output_file: str = "multimodal_dr_diagnosis_for_gemini.txt",
                  include_patterns: Optional[List[str]] = None,
                  exclude_dirs: Optional[List[str]] = None):
         """初始化项目汇集器
 
         Args:
-            root_dir: 项目根目录
+            root_dir: 项目根目录 (如果为None，自动检测脚本所在目录的父目录作为项目根目录)
             output_file: 输出文件名
             include_patterns: 需要包含的文件模式列表 (默认: ["*.py"])
             exclude_dirs: 需要排除的目录列表
         """
-        self.root_dir = Path(root_dir).resolve()
+        # 如果没有指定根目录，自动检测项目根目录
+        if root_dir is None:
+            # 获取脚本所在目录
+            script_dir = Path(__file__).parent.resolve()
+            # 假设项目根目录是scripts目录的父目录
+            self.root_dir = script_dir.parent
+        else:
+            self.root_dir = Path(root_dir).resolve()
         self.output_file = output_file
         self.include_patterns = include_patterns or ["*.py"]
         self.exclude_dirs = set(exclude_dirs or [
@@ -77,6 +84,10 @@ class ProjectAggregator:
             bool: True表示应该包含
         """
         if self.is_excluded(file_path):
+            return False
+
+        # 排除脚本自身
+        if file_path.resolve() == Path(__file__).resolve():
             return False
 
         # 检查文件扩展名
@@ -437,8 +448,8 @@ def main():
 
     parser.add_argument(
         "--root", "-r",
-        default=".",
-        help="项目根目录 (默认: 当前目录)"
+        default=None,
+        help="项目根目录 (默认: 自动检测项目根目录)"
     )
 
     parser.add_argument(
@@ -450,11 +461,13 @@ def main():
 
     args = parser.parse_args()
 
-    # 检查根目录是否存在
-    root_dir = Path(args.root)
-    if not root_dir.exists():
-        print(f"错误: 根目录不存在: {root_dir}")
-        sys.exit(1)
+    # 检查根目录是否存在（如果指定了的话）
+    root_dir = None
+    if args.root:
+        root_dir = Path(args.root)
+        if not root_dir.exists():
+            print(f"错误: 根目录不存在: {root_dir}")
+            sys.exit(1)
 
     # 创建并运行汇集器
     aggregator = ProjectAggregator(
