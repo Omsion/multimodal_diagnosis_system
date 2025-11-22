@@ -20,7 +20,7 @@ from typing import Tuple, Optional
 import logging
 import threading
 
-from settings import settings
+from src.config.settings import settings
 
 logger = logging.getLogger(__name__)
 

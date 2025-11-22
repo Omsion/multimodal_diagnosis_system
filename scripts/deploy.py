@@ -20,7 +20,7 @@ import logging
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
-from settings import settings, setup_logging
+from src.config.settings import settings, setup_logging
 import requests
 
 # 设置日志

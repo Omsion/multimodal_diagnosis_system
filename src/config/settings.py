@@ -96,7 +96,7 @@ class Settings(BaseSettings):
         description="向量数据库存储路径"
     )
     KNOWLEDGE_BASE_PATH: str = Field(
-        "./knowledge_base",
+        "./data/knowledge_base",
         description="知识库文档路径"
     )
     CHUNK_SIZE: int = Field(500, description="文档分块大小")

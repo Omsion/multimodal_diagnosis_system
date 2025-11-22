@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(touch:*)",
+      "Bash(mv:*)",
+      "Bash(src/core/vision/vision_processors.py)",
+      "Bash(tree:*)",
+      "Bash(find:*)"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "trusted_domains": [
+    "github.com",
+    "pypi.org",
+    "huggingface.co",
+    "stackoverflow.com",
+    "pytorch.org"
+  ]
+}
