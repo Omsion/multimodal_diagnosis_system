@@ -1,4 +1,15 @@
 # rag_chain_builder.py
+"""
+RAG (Retrieval-Augmented Generation) 链构建器
+
+该模块负责创建和管理检索增强生成链，用于糖尿病视网膜病变诊断的知识增强推理。
+包含向量数据库管理、文档检索、提示模板构建等功能。
+"""
+
+import os
+import logging
+from typing import Optional
+
 from langchain_community.document_loaders import DirectoryLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -9,7 +20,6 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.language_models.chat_models import BaseChatModel
 
 from settings import settings
-import logging
 
 logger = logging.getLogger(__name__)
 

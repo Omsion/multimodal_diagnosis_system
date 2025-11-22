@@ -1,16 +1,52 @@
-fastapi
-uvicorn[standard]
-python-multipart
-langchain
-langchain-community
-langchain-huggingface
-faiss-cpu
-sentence-transformers
-transformers
-torch
-Pillow
-requests
-accelerate
-bitsandbytes
-pydantic-settings  # 新增
-peft             # 新增
+# 多模态DR智能诊断系统依赖文件
+
+# === Web框架和API ===
+fastapi>=0.104.1
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+
+# === 机器学习深度学习框架 ===
+torch>=2.0.0
+torchvision>=0.15.0
+transformers>=4.35.0
+accelerate>=0.24.0
+peft>=0.7.0
+
+# === 计算机视觉 ===
+Pillow>=10.0.0
+opencv-python>=4.8.0
+
+# === 自然语言处理和RAG ===
+langchain>=0.0.340
+langchain-community>=0.0.5
+langchain-huggingface>=0.0.1
+sentence-transformers>=2.2.0
+faiss-cpu>=1.7.4  # 使用faiss-gpu如果需要GPU支持
+
+# === 数据处理 ===
+numpy>=1.24.0
+pandas>=2.0.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# === 系统监控和性能 ===
+psutil>=5.9.0
+GPUtil>=1.4.0
+
+# === 日志和配置 ===
+structlog>=23.1.0
+python-dotenv>=1.0.0
+
+# === 异步支持 ===
+aiofiles>=23.2.1
+httpx>=0.25.0
+
+# === 安全和验证 ===
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+
+# === 模型优化 ===
+bitsandbytes>=0.41.0  # 用于模型量化和内存优化
+
+# === 其他工具 ===
+requests>=2.31.0
