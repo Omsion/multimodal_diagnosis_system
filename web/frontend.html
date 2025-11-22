@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>多模态智能眼底诊断系统</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <!-- 引入 Google Fonts: Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          colors: {
+            primary: '#3b82f6',
+            secondary: '#6366f1',
+            dark: '#0f172a',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background: radial-gradient(circle at top center, #1e293b 0%, #0f172a 100%);
+      color: #334155;
+    }
+    
+    /* Glassmorphism Card */
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.25);
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f1f1; 
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1; 
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8; 
+    }
+
+    /* Animations */
+    .fade-in-up {
+      animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .pulse-soft {
+      animation: pulseSoft 2s infinite;
+    }
+    @keyframes pulseSoft {
+      0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+      70% { box-shadow: 0 0 0 15px rgba(59, 130, 246, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+    }
+
+    .drag-active {
+      border-color: #3b82f6 !important;
+      background-color: #eff6ff !important;
+      transform: scale(1.01);
+    }
+
+    /* Severity Badges */
+    .grade-badge-0 { background-color: #d1fae5; color: #065f46; border: 1px solid #34d399; }
+    .grade-badge-1 { background-color: #fef9c3; color: #854d0e; border: 1px solid #facc15; }
+    .grade-badge-2 { background-color: #ffedd5; color: #9a3412; border: 1px solid #fb923c; }
+    .grade-badge-3 { background-color: #fee2e2; color: #991b1b; border: 1px solid #f87171; }
+    .grade-badge-4 { background-color: #7f1d1d; color: #fecaca; border: 1px solid #ef4444; }
+
+    /* Loader */
+    .medical-loader {
+      width: 48px;
+      height: 48px;
+      border: 3px solid #e2e8f0;
+      border-radius: 50%;
+      border-top-color: #3b82f6;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased font-sans selection:bg-blue-500 selection:text-white">
+
+  <!-- Navbar -->
+  <nav class="w-full z-50 px-6 py-4 flex justify-between items-center">
+    <div class="flex items-center gap-3">
+      <div class="bg-blue-600 w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30 text-white">
+        <i class="fas fa-eye text-xl"></i>
+      </div>
+      <div>
+        <h1 class="text-white text-xl font-bold tracking-tight">RetinaAI <span class="text-blue-400 font-light">Diagnosis</span></h1>
+        <p class="text-slate-400 text-xs">多模态智能眼底筛查系统</p>
+      </div>
+    </div>
+    <button id="openSettingsBtn" class="text-slate-300 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/10">
+      <i class="fas fa-cog text-lg"></i>
+    </button>
+  </nav>
+
+  <!-- Main Container -->
+  <main class="flex-1 container mx-auto px-4 py-6 max-w-5xl relative z-10">
+    
+    <!-- Settings Modal (Hidden by default) -->
+    <div id="settingsModal" class="fixed inset-0 z-50 hidden">
+      <div class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" id="closeSettingsBackdrop"></div>
+      <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 fade-in-up">
+        <div class="flex justify-between items-center mb-6">
+          <h3 class="text-xl font-bold text-slate-800">系统配置</h3>
+          <button id="closeSettingsBtn" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times text-xl"></i></button>
+        </div>
+        
+        <div class="space-y-6">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-2">API 服务器地址</label>
+            <div class="flex gap-2">
+              <input type="url" id="apiUrl" class="flex-1 px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="http://localhost:8000">
+              <button id="saveApiBtn" class="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 text-sm font-medium">保存</button>
+            </div>
+          </div>
+
+          <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <div class="flex justify-between items-center mb-4">
+              <span class="text-sm font-medium text-slate-700">服务状态监控</span>
+              <div class="flex items-center">
+                <div id="healthIndicator" class="w-2.5 h-2.5 rounded-full bg-slate-300 mr-2"></div>
+                <span id="healthStatus" class="text-xs text-slate-500 font-mono">未连接</span>
+              </div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-3">
+              <button id="checkHealthBtn" class="flex items-center justify-center gap-2 py-2 px-3 bg-white border border-slate-200 rounded-lg text-sm hover:bg-blue-50 text-blue-600 transition-colors">
+                <i class="fas fa-heartbeat"></i> 检查连接
+              </button>
+              <button id="reloadKBBtn" class="flex items-center justify-center gap-2 py-2 px-3 bg-white border border-slate-200 rounded-lg text-sm hover:bg-green-50 text-green-600 transition-colors">
+                <i class="fas fa-database"></i> 更新知识库
+              </button>
+            </div>
+            
+            <div id="modelStatus" class="hidden mt-4 pt-4 border-t border-slate-200 grid grid-cols-2 gap-2 text-xs">
+               <div class="flex justify-between"><span>DR模型</span><span id="statusDR" class="font-bold text-slate-400">●</span></div>
+               <div class="flex justify-between"><span>Qwen-VL</span><span id="statusQwen" class="font-bold text-slate-400">●</span></div>
+               <div class="flex justify-between"><span>R1-7B</span><span id="statusR1" class="font-bold text-slate-400">●</span></div>
+               <div class="flex justify-between"><span>RAG库</span><span id="statusRAG" class="font-bold text-slate-400">●</span></div>
+            </div>
+          </div>
+          
+          <button id="viewLogsBtn" class="w-full py-2 text-slate-500 text-sm hover:text-blue-600 underline">查看系统日志</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Workspace -->
+    <div class="glass-panel rounded-3xl overflow-hidden shadow-2xl fade-in-up min-h-[600px]">
+      
+      <!-- Initial State / Upload Area -->
+      <div id="uploadSection" class="p-8 md:p-12">
+        
+        <!-- Settings Toggles -->
+        <div class="flex justify-center gap-6 mb-8">
+            <label class="flex items-center cursor-pointer group">
+              <div class="relative">
+                <input type="checkbox" id="enableRag" checked class="peer sr-only">
+                <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </div>
+              <span class="ml-3 text-sm font-medium text-slate-600 group-hover:text-blue-600 transition-colors">RAG 知识增强</span>
+            </label>
+
+            <label class="flex items-center cursor-pointer group">
+              <div class="relative">
+                <input type="checkbox" id="enableCot" checked class="peer sr-only">
+                <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+              </div>
+              <span class="ml-3 text-sm font-medium text-slate-600 group-hover:text-purple-600 transition-colors">CoT 思维链</span>
+            </label>
+        </div>
+
+        <!-- Drop Zone -->
+        <div id="dropZone" class="relative group border-2 border-dashed border-slate-300 rounded-2xl p-10 text-center transition-all duration-300 hover:border-blue-500 hover:bg-blue-50/50 cursor-pointer bg-slate-50">
+          <input type="file" id="imageInput" accept="image/*" class="hidden">
+          
+          <!-- Placeholder -->
+          <div id="uploadPlaceholder" class="transition-opacity duration-300">
+            <div class="w-20 h-20 bg-white rounded-full shadow-md flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300">
+              <i class="fas fa-cloud-upload-alt text-4xl text-blue-500"></i>
+            </div>
+            <h3 class="text-xl font-bold text-slate-700 mb-2">点击或拖拽上传眼底图像</h3>
+            <p class="text-slate-500 text-sm max-w-md mx-auto">支持 JPG, PNG, BMP 格式。建议上传清晰的眼底相机拍摄图像。</p>
+          </div>
+
+          <!-- Preview (Hidden initially) -->
+          <div id="imagePreview" class="hidden">
+            <div class="relative max-w-md mx-auto rounded-xl overflow-hidden shadow-lg group-hover:shadow-xl transition-shadow">
+               <img id="previewImg" class="w-full object-cover max-h-[400px]" alt="预览">
+               <div class="absolute bottom-0 left-0 right-0 bg-black/50 backdrop-blur-sm p-2 text-white text-xs text-center" id="imageInfo"></div>
+               <button id="removeImgBtn" class="absolute top-2 right-2 bg-white/90 text-slate-700 rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-50 hover:text-red-600 transition-colors shadow-sm">
+                 <i class="fas fa-trash"></i>
+               </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Button -->
+        <div class="mt-8 text-center">
+          <button id="diagnoseBtn" disabled class="px-10 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none transition-all duration-300 text-lg flex items-center justify-center mx-auto gap-2 w-full md:w-auto min-w-[200px]">
+            <i class="fas fa-wand-magic-sparkles"></i>
+            开始智能诊断
+          </button>
+        </div>
+      </div>
+
+      <!-- Loading Screen (Overlay) -->
+      <div id="loadingState" class="hidden absolute inset-0 bg-white/90 backdrop-blur-sm z-20 flex flex-col items-center justify-center fade-in-up">
+        <div class="medical-loader mb-6"></div>
+        <h3 class="text-2xl font-bold text-slate-800 mb-2">正在进行多模态分析</h3>
+        <p class="text-slate-500 mb-8">AI 正在整合视觉特征与医学知识库...</p>
+        
+        <div class="w-64 h-2 bg-slate-100 rounded-full overflow-hidden">
+          <div id="progressBar" class="h-full bg-blue-600 rounded-full transition-all duration-500" style="width: 0%"></div>
+        </div>
+        <div id="progressSteps" class="mt-4 text-sm font-medium text-blue-600 h-6">
+           初始化引擎...
+        </div>
+      </div>
+
+      <!-- Results Section -->
+      <div id="resultsSection" class="hidden bg-slate-50 border-t border-slate-100">
+        
+        <!-- Header Summary -->
+        <div class="p-8 bg-white">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">诊断分析报告</h2>
+                    <p class="text-sm text-slate-400 mt-1">生成时间: <span id="reportTime">--</span></p>
+                </div>
+                <div class="flex gap-3">
+                    <button id="newDiagnosisBtn" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors">
+                        <i class="fas fa-redo mr-1"></i> 新诊断
+                    </button>
+                    <button id="downloadReportBtn" class="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-sm font-medium transition-colors">
+                        <i class="fas fa-download mr-1"></i> 导出
+                    </button>
+                </div>
+            </div>
+
+            <!-- Core Metrics Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- DR Grade -->
+                <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                    <div class="text-sm text-slate-500 mb-1 flex justify-between">
+                        <span>DR 分级</span>
+                        <i class="fas fa-microscope text-blue-400"></i>
+                    </div>
+                    <div id="drGrade" class="text-3xl font-bold text-slate-800 mb-1">--</div>
+                    <div id="confidence" class="text-xs font-mono text-slate-400 bg-slate-50 inline-block px-2 py-1 rounded">置信度: --%</div>
+                </div>
+
+                <!-- Risk Level -->
+                <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                     <div class="text-sm text-slate-500 mb-1 flex justify-between">
+                        <span>风险评估</span>
+                        <i class="fas fa-shield-alt text-emerald-400"></i>
+                    </div>
+                    <div id="riskLevel" class="text-3xl font-bold text-slate-800 mb-1">--</div>
+                    <div id="riskDesc" class="text-xs text-slate-500">--</div>
+                </div>
+
+                <!-- Action -->
+                <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                     <div class="text-sm text-slate-500 mb-1 flex justify-between">
+                        <span>建议行动</span>
+                        <i class="fas fa-user-md text-purple-400"></i>
+                    </div>
+                    <div id="urgency" class="text-3xl font-bold text-slate-800 mb-1">--</div>
+                    <div id="urgencyDesc" class="text-xs text-slate-500">--</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Deep Analysis Grid -->
+        <div class="p-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <!-- Left Column: Visual & Description -->
+            <div class="space-y-6">
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                    <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <span class="w-1 h-6 bg-blue-500 rounded-full"></span>
+                        病灶视觉特征
+                    </h3>
+                    <p id="lesionDesc" class="text-slate-600 leading-relaxed text-sm whitespace-pre-wrap font-mono bg-slate-50 p-4 rounded-xl">等待分析...</p>
+                </div>
+
+                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
+                     <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <span class="w-1 h-6 bg-emerald-500 rounded-full"></span>
+                        治疗与随访建议
+                    </h3>
+                    <ul id="recommendations" class="space-y-3 text-sm text-slate-700"></ul>
+                </div>
+            </div>
+
+            <!-- Right Column: AI Reasoning -->
+            <div class="space-y-6">
+                <!-- CoT -->
+                <div id="cotSection" class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hidden">
+                    <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <span class="w-1 h-6 bg-purple-500 rounded-full"></span>
+                        AI 思维链推理 (CoT)
+                    </h3>
+                    <div class="bg-slate-900 rounded-xl p-4 overflow-hidden">
+                        <pre id="cotReasoning" class="text-xs text-green-400 font-mono whitespace-pre-wrap max-h-[300px] overflow-y-auto custom-scrollbar"></pre>
+                    </div>
+                </div>
+
+                <!-- RAG Knowledge -->
+                <div id="knowledgeSection" class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hidden">
+                    <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <span class="w-1 h-6 bg-indigo-500 rounded-full"></span>
+                        医学知识库检索 (RAG)
+                    </h3>
+                    <div id="retrievedKnowledge" class="space-y-3"></div>
+                </div>
+            </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="text-center py-6">
+        <p class="text-slate-500 text-xs">
+            © 2024 Multimodal Diagnosis System. For Research Use Only. <br>
+            本系统基于 Qwen-VL 与 DeepSeek-R1 蒸馏模型构建。
+        </p>
+    </footer>
+
+    <!-- Logs Modal (Hidden) -->
+    <div id="logsSection" class="fixed inset-0 z-50 hidden">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="toggleLogs()"></div>
+        <div class="absolute bottom-0 w-full h-2/3 bg-slate-900 rounded-t-3xl p-6 flex flex-col fade-in-up">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-white font-mono">System Logs</h3>
+                <button id="closeLogsBtn" class="text-slate-400 hover:text-white"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="logsContainer" class="flex-1 bg-black/50 rounded-xl p-4 overflow-y-auto font-mono text-xs text-green-500 whitespace-pre-wrap"></div>
+        </div>
+    </div>
+
+  </main>
+
+  <script>
+    // --- Global Variables ---
+    let currentFile = null;
+    let diagnosisData = null;
+
+    // --- DOM References ---
+    const els = {
+        // Modal
+        settingsModal: document.getElementById('settingsModal'),
+        openSettingsBtn: document.getElementById('openSettingsBtn'),
+        closeSettingsBtn: document.getElementById('closeSettingsBtn'),
+        closeSettingsBackdrop: document.getElementById('closeSettingsBackdrop'),
+        
+        // Settings
+        apiUrl: document.getElementById('apiUrl'),
+        saveApiBtn: document.getElementById('saveApiBtn'),
+        checkHealthBtn: document.getElementById('checkHealthBtn'),
+        reloadKBBtn: document.getElementById('reloadKBBtn'),
+        viewLogsBtn: document.getElementById('viewLogsBtn'),
+        healthStatus: document.getElementById('healthStatus'),
+        healthIndicator: document.getElementById('healthIndicator'),
+        modelStatus: document.getElementById('modelStatus'),
+        
+        // Main UI
+        dropZone: document.getElementById('dropZone'),
+        imageInput: document.getElementById('imageInput'),
+        uploadPlaceholder: document.getElementById('uploadPlaceholder'),
+        imagePreview: document.getElementById('imagePreview'),
+        previewImg: document.getElementById('previewImg'),
+        imageInfo: document.getElementById('imageInfo'),
+        removeImgBtn: document.getElementById('removeImgBtn'),
+        
+        // Controls
+        enableRag: document.getElementById('enableRag'),
+        enableCot: document.getElementById('enableCot'),
+        diagnoseBtn: document.getElementById('diagnoseBtn'),
+        
+        // Loading & Results
+        loadingState: document.getElementById('loadingState'),
+        progressBar: document.getElementById('progressBar'),
+        progressSteps: document.getElementById('progressSteps'),
+        resultsSection: document.getElementById('resultsSection'),
+        uploadSection: document.getElementById('uploadSection'),
+        
+        // Logs
+        logsSection: document.getElementById('logsSection'),
+        logsContainer: document.getElementById('logsContainer'),
+        closeLogsBtn: document.getElementById('closeLogsBtn')
+    };
+
+    // --- Initialization ---
+    function init() {
+        loadSavedApiUrl();
+        setupEventListeners();
+        checkApiHealth(); // Auto check on load
+    }
+
+    function loadSavedApiUrl() {
+        const savedUrl = localStorage.getItem('api_url') || 'http://localhost:8000';
+        els.apiUrl.value = savedUrl;
+    }
+
+    // --- Event Listeners ---
+    function setupEventListeners() {
+        // Modal Control
+        els.openSettingsBtn.onclick = () => els.settingsModal.classList.remove('hidden');
+        els.closeSettingsBtn.onclick = () => els.settingsModal.classList.add('hidden');
+        els.closeSettingsBackdrop.onclick = () => els.settingsModal.classList.add('hidden');
+
+        // API Settings
+        els.saveApiBtn.onclick = saveApiUrl;
+        els.checkHealthBtn.onclick = checkApiHealth;
+        els.reloadKBBtn.onclick = reloadKnowledgeBase;
+        els.viewLogsBtn.onclick = toggleLogs;
+        els.closeLogsBtn.onclick = toggleLogs;
+
+        // File Upload
+        els.dropZone.onclick = (e) => {
+            if(e.target !== els.removeImgBtn && !els.removeImgBtn.contains(e.target)) {
+                els.imageInput.click();
+            }
+        };
+        els.dropZone.ondragover = (e) => { e.preventDefault(); els.dropZone.classList.add('drag-active'); };
+        els.dropZone.ondragleave = (e) => { e.preventDefault(); els.dropZone.classList.remove('drag-active'); };
+        els.dropZone.ondrop = handleDrop;
+        els.imageInput.onchange = (e) => processFile(e.target.files[0]);
+        els.removeImgBtn.onclick = (e) => {
+            e.stopPropagation();
+            resetUpload();
+        }
+
+        // Actions
+        els.diagnoseBtn.onclick = startDiagnosis;
+        document.getElementById('downloadReportBtn').onclick = downloadReport;
+        document.getElementById('newDiagnosisBtn').onclick = resetAll;
+    }
+
+    // --- Logic: Settings & Health ---
+    function saveApiUrl() {
+        const url = els.apiUrl.value.trim();
+        if (!url) return showToast('请输入有效的 URL', 'error');
+        localStorage.setItem('api_url', url);
+        showToast('API 地址已保存', 'success');
+        checkApiHealth();
+    }
+
+    async function checkApiHealth() {
+        const apiUrl = getApiUrl();
+        els.healthStatus.textContent = '连接中...';
+        els.healthIndicator.className = 'w-2.5 h-2.5 rounded-full bg-yellow-400 mr-2 animate-pulse';
+
+        try {
+            const res = await fetch(`${apiUrl}/api/health`);
+            if(!res.ok) throw new Error('Failed');
+            const data = await res.json();
+            
+            els.healthStatus.textContent = '系统在线';
+            els.healthStatus.classList.replace('text-slate-500', 'text-green-600');
+            els.healthIndicator.className = 'w-2.5 h-2.5 rounded-full bg-green-500 mr-2';
+            
+            // Update Model Status Details
+            els.modelStatus.classList.remove('hidden');
+            updateModelBadge('statusDR', data.models.dr_grading);
+            updateModelBadge('statusQwen', data.models.qwen_vl);
+            updateModelBadge('statusR1', data.models.r1_7b);
+            updateModelBadge('statusRAG', data.models.rag);
+
+        } catch (e) {
+            els.healthStatus.textContent = '连接失败';
+            els.healthStatus.classList.replace('text-green-600', 'text-red-500');
+            els.healthIndicator.className = 'w-2.5 h-2.5 rounded-full bg-red-500 mr-2';
+            els.modelStatus.classList.add('hidden');
+        }
+    }
+
+    function updateModelBadge(id, active) {
+        const el = document.getElementById(id);
+        el.textContent = active ? '就绪' : '离线';
+        el.className = active ? 'text-green-600 font-bold' : 'text-red-400 font-bold';
+    }
+
+    async function reloadKnowledgeBase() {
+        try {
+            const res = await fetch(`${getApiUrl()}/api/knowledge/update`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify([])
+            });
+            if(res.ok) showToast('知识库重载成功', 'success');
+        } catch (e) {
+            showToast('知识库更新失败', 'error');
+        }
+    }
+
+    // --- Logic: File Upload ---
+    function handleDrop(e) {
+        e.preventDefault();
+        els.dropZone.classList.remove('drag-active');
+        if(e.dataTransfer.files.length) processFile(e.dataTransfer.files[0]);
+    }
+
+    function processFile(file) {
+        if (!file || !file.type.startsWith('image/')) return showToast('请上传图片文件', 'error');
+        if (file.size > 10 * 1024 * 1024) return showToast('图片大小需小于 10MB', 'error');
+
+        currentFile = file;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            els.previewImg.src = e.target.result;
+            els.imageInfo.textContent = `${file.name} (${(file.size/1024/1024).toFixed(2)} MB)`;
+            
+            els.uploadPlaceholder.classList.add('hidden');
+            els.imagePreview.classList.remove('hidden');
+            els.diagnoseBtn.disabled = false;
+            els.dropZone.classList.add('border-blue-500', 'bg-blue-50');
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function resetUpload() {
+        currentFile = null;
+        els.imageInput.value = '';
+        els.uploadPlaceholder.classList.remove('hidden');
+        els.imagePreview.classList.add('hidden');
+        els.diagnoseBtn.disabled = true;
+        els.dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+    }
+
+    // --- Logic: Diagnosis ---
+    async function startDiagnosis() {
+        if (!currentFile) return;
+
+        // UI Transition
+        els.diagnoseBtn.disabled = true;
+        els.loadingState.classList.remove('hidden');
+        els.uploadSection.classList.add('hidden'); // Hide upload to focus on loading
+        
+        // Progress Animation
+        simulateProgress();
+
+        try {
+            const formData = new FormData();
+            formData.append('file', currentFile);
+            formData.append('enable_rag', els.enableRag.checked);
+            formData.append('enable_cot', els.enableCot.checked);
+
+            const res = await fetch(`${getApiUrl()}/api/diagnose`, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!res.ok) throw new Error('API Error');
+            diagnosisData = await res.json();
+
+            renderResults(diagnosisData);
+            
+        } catch (e) {
+            console.error(e);
+            showToast('诊断服务响应超时或错误', 'error');
+            els.uploadSection.classList.remove('hidden'); // Show upload again
+        } finally {
+            els.loadingState.classList.add('hidden');
+        }
+    }
+
+    async function simulateProgress() {
+        const steps = [
+            { t: 10, msg: '正在上传影像数据...' },
+            { t: 30, msg: '启动 Qwen-VL 进行视觉特征提取...' },
+            { t: 60, msg: '检索 RAG 知识库医学文献...' },
+            { t: 80, msg: 'DeepSeek-R1 进行思维链推理...' },
+            { t: 95, msg: '生成最终诊断报告...' }
+        ];
+        
+        for(const step of steps) {
+            els.progressBar.style.width = step.t + '%';
+            els.progressSteps.textContent = step.msg;
+            await new Promise(r => setTimeout(r, 800));
+        }
+    }
+
+    // --- Logic: Render Results ---
+    function renderResults(data) {
+        els.resultsSection.classList.remove('hidden');
+        document.getElementById('reportTime').textContent = new Date().toLocaleString();
+
+        // 1. Cards
+        renderCard('drGrade', data.dr_grade, `(等级 ${data.dr_grade}) ${data.dr_grade_desc}`, data.dr_grade);
+        document.getElementById('confidence').textContent = `置信度: ${(data.confidence * 100).toFixed(1)}%`;
+        
+        document.getElementById('riskLevel').textContent = getRiskLevel(data.dr_grade);
+        document.getElementById('riskLevel').className = `text-3xl font-bold mb-1 ${getRiskColor(data.dr_grade)}`;
+        document.getElementById('riskDesc').textContent = getRiskDesc(data.dr_grade);
+        
+        document.getElementById('urgency').textContent = getUrgency(data.dr_grade);
+        document.getElementById('urgencyDesc').textContent = getUrgencyDesc(data.dr_grade);
+
+        // 2. Detailed Text
+        document.getElementById('lesionDesc').textContent = data.lesion_description;
+        
+        const recList = document.getElementById('recommendations');
+        recList.innerHTML = data.recommendations.map(r => 
+            `<li class="flex items-start gap-2"><i class="fas fa-check-circle text-emerald-500 mt-1"></i><span>${r}</span></li>`
+        ).join('');
+
+        // 3. AI Reasoning sections
+        if(els.enableCot.checked && data.cot_reasoning) {
+            document.getElementById('cotSection').classList.remove('hidden');
+            document.getElementById('cotReasoning').textContent = data.cot_reasoning;
+        }
+        
+        if(els.enableRag.checked && data.retrieved_knowledge) {
+            document.getElementById('knowledgeSection').classList.remove('hidden');
+            const kDiv = document.getElementById('retrievedKnowledge');
+            kDiv.innerHTML = data.retrieved_knowledge.map(k => 
+                `<div class="p-3 bg-indigo-50 rounded-lg text-sm text-indigo-800 border border-indigo-100"><i class="fas fa-book mr-2"></i>${k}</div>`
+            ).join('');
+        }
+
+        // Scroll to results
+        els.resultsSection.scrollIntoView({behavior: 'smooth'});
+    }
+
+    function renderCard(id, grade, text, level) {
+        const el = document.getElementById(id);
+        el.textContent = text;
+        // Define styles based on severity 0-4
+        const colors = ['text-emerald-600', 'text-yellow-600', 'text-orange-500', 'text-red-500', 'text-red-700'];
+        el.className = `text-2xl font-bold mb-1 ${colors[level] || colors[0]}`;
+    }
+
+    // --- Helpers ---
+    function getRiskLevel(g) { return ['低风险', '轻微', '中度', '高风险', '极高危'][g] || '未知'; }
+    function getRiskColor(g) { return ['text-emerald-600', 'text-yellow-600', 'text-orange-500', 'text-red-600', 'text-red-800'][g]; }
+    function getRiskDesc(g) { return ['未发现明显病变', '轻度非增殖期', '中度非增殖期', '重度非增殖期', '增殖期视网膜病变'][g]; }
+    function getUrgency(g) { return ['常规随访', '定期观察', '建议就诊', '及时就医', '立即治疗'][g]; }
+    function getUrgencyDesc(g) { return ['12个月后复查', '6-12个月后复查', '3-6个月后复查', '1个月内复查', '需尽快进行激光或手术治疗'][g]; }
+
+    function resetAll() {
+        resetUpload();
+        diagnosisData = null;
+        els.resultsSection.classList.add('hidden');
+        els.uploadSection.classList.remove('hidden');
+        els.progressBar.style.width = '0%';
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    }
+
+    // --- Utils ---
+    function getApiUrl() { return els.apiUrl.value.replace(/\/$/, ''); }
+    
+    function showToast(msg, type) {
+        const toast = document.createElement('div');
+        toast.className = `fixed top-5 right-5 px-6 py-3 rounded-lg text-white shadow-xl z-[60] fade-in-up font-medium ${type === 'error' ? 'bg-red-500' : 'bg-slate-800'}`;
+        toast.innerHTML = `<i class="fas ${type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'} mr-2"></i>${msg}`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+
+    async function toggleLogs() {
+        const sec = els.logsSection;
+        if (sec.classList.contains('hidden')) {
+            sec.classList.remove('hidden');
+            try {
+                const res = await fetch(`${getApiUrl()}/api/logs`);
+                const data = await res.json();
+                els.logsContainer.textContent = data.logs.join('\n');
+            } catch(e) { els.logsContainer.textContent = "无法获取日志..."; }
+        } else {
+            sec.classList.add('hidden');
+        }
+    }
+
+    function downloadReport() {
+        if (!diagnosisData) return;
+        const text = `=== 眼底诊断报告 ===\n生成时间: ${new Date().toLocaleString()}\n\nDR分级: ${diagnosisData.dr_grade}\n描述: ${diagnosisData.lesion_description}\n\n治疗建议:\n${diagnosisData.recommendations.join('\n')}`;
+        const blob = new Blob([text], {type: 'text/plain'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `Report_${Date.now()}.txt`;
+        a.click();
+    }
+
+    // Start
+    init();
+  </script>
+</body>
+</html>
