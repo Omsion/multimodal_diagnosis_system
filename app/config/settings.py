@@ -82,33 +82,6 @@ class Settings(BaseSettings):
     QWEN_TEMPERATURE: float = Field(0.7, description="Qwen-VL生成温度")
     QWEN_TOP_P: float = Field(0.9, description="Qwen-VL top-p采样参数")
 
-    # LLM推理配置
-    LLM_MAX_TOKENS: int = Field(1024, description="LLM最大生成长度")
-    LLM_TEMPERATURE: float = Field(0.3, description="LLM推理温度")
-    LLM_TOP_P: float = Field(0.8, description="LLM top-p采样参数")
-
-    # === RAG配置 ===
-    EMBEDDING_MODEL: str = Field(
-        "sentence-transformers/all-MiniLM-L6-v2",
-        description="文本嵌入模型"
-    )
-    VECTOR_DB_PATH: str = Field(
-        "./data/vector_db",
-        description="向量数据库存储路径"
-    )
-    KNOWLEDGE_BASE_PATH: str = Field(
-        "./data/knowledge_base",
-        description="知识库文档路径"
-    )
-    CHUNK_SIZE: int = Field(500, description="文档分块大小")
-    CHUNK_OVERLAP: int = Field(50, description="文档分块重叠大小")
-    TOP_K: int = Field(3, description="检索文档数量")
-
-    # === 缓存配置 ===
-    ENABLE_CACHE: bool = Field(True, description="启用结果缓存")
-    CACHE_TTL: int = Field(3600, description="缓存过期时间(秒)")
-    MAX_CACHE_SIZE: int = Field(1000, description="最大缓存条目数")
-
     # === 安全配置 ===
     MAX_UPLOAD_SIZE: int = Field(50 * 1024 * 1024, description="最大上传文件大小(字节)")
     ALLOWED_IMAGE_TYPES: List[str] = Field(

@@ -39,8 +39,8 @@ logs/
 *.log
 
 # Data and Models (Optional, depending on if you track them)
-# data/
-# models/
+data/
+models/
 # But usually we ignore large model weights
 *.pth
 *.bin
