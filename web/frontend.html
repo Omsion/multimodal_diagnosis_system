@@ -605,7 +605,8 @@
 
         // 1. DR Grade
         const gradeEl = $('drGrade');
-        gradeEl.textContent = data.dr_grade_desc;
+        // Display both numeric grade and description
+        gradeEl.innerHTML = `\u003cspan class=\"text-2xl font-mono\"\u003e级别 ${data.dr_grade}\u003c/span\u003e\u003cbr\u003e${data.dr_grade_desc}`;
         gradeEl.className = `text-4xl font-bold mb-2 ${getGradeColor(data.dr_grade)}`;
         $('confidence').textContent = `置信度: ${(data.confidence * 100).toFixed(1)}%`;
 
