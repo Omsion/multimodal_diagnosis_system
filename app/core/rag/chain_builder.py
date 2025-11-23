@@ -19,7 +19,7 @@ from langchain_core.runnables import RunnablePassthrough, RunnableParallel
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.language_models.chat_models import BaseChatModel
 
-from src.config.settings import settings
+from app.config.settings import settings
 
 logger = logging.getLogger(__name__)
 

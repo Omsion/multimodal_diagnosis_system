@@ -9,14 +9,14 @@
 import os
 import sys
 from pathlib import Path
+import logging
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.config.settings import settings
-from src.core.rag.chain_builder import get_retriever
-import logging
+from app.config.settings import settings
+from app.core.rag.chain_builder import get_retriever
 
 # 配置日志
 logging.basicConfig(
@@ -40,7 +40,8 @@ def main():
         return False
 
     print(f"知识库文件: {knowledge_file}")
-    print(f"文件大小: {knowledge_file.stat().st_size / 1024:.1f} KB")
+    if knowledge_file.exists():
+        print(f"文件大小: {knowledge_file.stat().st_size / 1024:.1f} KB")
 
     try:
         # 删除旧的向量数据库（如果存在）

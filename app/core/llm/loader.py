@@ -28,7 +28,7 @@ from peft import PeftModel
 from langchain_community.llms.huggingface_pipeline import HuggingFacePipeline
 from langchain_core.language_models.chat_models import BaseChatModel
 
-from src.config.settings import settings
+from app.config.settings import settings
 import logging
 
 logger = logging.getLogger(__name__)
