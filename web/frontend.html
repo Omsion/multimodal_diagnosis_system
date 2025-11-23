@@ -247,7 +247,7 @@
       </div>
 
       <!-- Loading Screen -->
-      <div id="loadingState" class="hidden absolute inset-0 bg-slate-900/90 backdrop-blur-md z-20 flex flex-col items-center justify-center fade-in-up">
+      <div id="loadingState" class="hidden absolute inset-0 bg-slate-900/90 backdrop-blur-md z-10 flex flex-col items-center justify-center fade-in-up">
         <div class="medical-loader mb-8"></div>
         <h3 class="text-2xl font-bold text-white mb-2">正在进行多模态分析</h3>
         <p class="text-slate-400 mb-10 font-mono text-sm" id="loadingText">AI 正在整合视觉特征与医学知识库...</p>
@@ -492,20 +492,32 @@
     }
 
     async function fetchMetrics() {
-        els.metricsContent.innerHTML = '<div class="col-span-full text-center text-slate-500 py-8">加载中...</div>';
         try {
             const res = await fetch(`${getApiUrl()}/metrics`);
             if(!res.ok) throw new Error('Failed');
             const data = await res.json();
             
-            // Render Metrics
-            const metricsHtml = Object.entries(data).map(([key, value]) => `
-                <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-                    <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">${key.replace(/_/g, ' ')}</div>
-                    <div class="text-xl font-mono font-bold text-blue-400">${formatMetric(value)}</div>
-                </div>
-            `).join('');
-            els.metricsContent.innerHTML = metricsHtml;
+            // Check if metrics already rendered
+            const existingMetrics = els.metricsContent.querySelectorAll('[data-metric-key]');
+            
+            if (existingMetrics.length === 0) {
+                // First time rendering - create full HTML structure
+                const metricsHtml = Object.entries(data).map(([key, value]) => `
+                    <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                        <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">${key.replace(/_/g, ' ')}</div>
+                        <div class="text-xl font-mono font-bold text-blue-400" data-metric-key="${key}">${formatMetric(value)}</div>
+                    </div>
+                `).join('');
+                els.metricsContent.innerHTML = metricsHtml;
+            } else {
+                // Update only the values, not the entire HTML
+                Object.entries(data).forEach(([key, value]) => {
+                    const valueEl = els.metricsContent.querySelector(`[data-metric-key="${key}"]`);
+                    if (valueEl) {
+                        valueEl.textContent = formatMetric(value);
+                    }
+                });
+            }
         } catch(e) {
             els.metricsContent.innerHTML = '<div class="col-span-full text-center text-red-400 py-8">无法获取系统指标</div>';
         }
