@@ -25,6 +25,17 @@ class DiagnosisService:
 
         logger.info("Initializing DiagnosisService models...")
         
+        if settings.USE_API_MODELS:
+            logger.info("使用API模式运行 (轻量级模式)")
+            self._initialize_api_models()
+        else:
+            logger.info("使用本地模型运行 (完整模式)")
+            self._initialize_local_models()
+
+        self.initialized = True
+
+    def _initialize_local_models(self):
+        """初始化本地模型"""
         # Load DR Grading Model
         try:
             self.dr_grader = DRGradingModule(settings.RESNET_MODEL_PATH)
@@ -43,6 +54,7 @@ class DiagnosisService:
 
         # Load RAG Chain
         try:
+            from app.core.llm.loader import load_r1_7b_llm_as_langchain_component
             llm = load_r1_7b_llm_as_langchain_component()
             if llm:
                 retriever = get_retriever()
@@ -53,7 +65,36 @@ class DiagnosisService:
         except Exception as e:
             logger.error(f"Failed to build RAG chain: {e}")
 
-        self.initialized = True
+    def _initialize_api_models(self):
+        """初始化API模型"""
+        # Load DR Grading Model (本地保留)
+        try:
+            self.dr_grader = DRGradingModule(settings.RESNET_MODEL_PATH)
+            self.dr_grader._load_model()
+            logger.info("DR Grading model loaded successfully.")
+        except Exception as e:
+            logger.error(f"Failed to load DR Grading model: {e}")
+
+        # Load Qwen-VL API Client
+        try:
+            from app.core.api_models import QwenVLAPIClient
+            self.lesion_describer = QwenVLAPIClient()
+            logger.info("Qwen-VL API client initialized successfully.")
+        except Exception as e:
+            logger.error(f"Failed to initialize Qwen-VL API client: {e}")
+
+        # Load DeepSeek Chat API for RAG
+        try:
+            from app.core.api_models import get_deepseek_chat_model
+            llm = get_deepseek_chat_model()
+            if llm:
+                retriever = get_retriever()
+                self.rag_chain = create_rag_chain(llm, retriever)
+                logger.info("RAG chain with DeepSeek API built successfully.")
+            else:
+                logger.error("Failed to load DeepSeek API, RAG chain cannot be built.")
+        except Exception as e:
+            logger.error(f"Failed to build RAG chain with API: {e}")
 
     def predict_dr(self, image: Image.Image) -> Tuple[int, float, str]:
         """
