@@ -424,12 +424,27 @@
         $('closeSettingsBtn').onclick = () => els.settingsModal.classList.add('hidden');
         $('closeSettingsBackdrop').onclick = () => els.settingsModal.classList.add('hidden');
         
+        let metricsRefreshInterval = null;
+        
         $('metricsBtn').onclick = () => {
             els.metricsModal.classList.remove('hidden');
             fetchMetrics();
+            // Start auto-refresh every 2 seconds
+            metricsRefreshInterval = setInterval(fetchMetrics, 2000);
         };
-        $('closeMetricsBtn').onclick = () => els.metricsModal.classList.add('hidden');
-        $('closeMetricsBackdrop').onclick = () => els.metricsModal.classList.add('hidden');
+        
+        const closeMetricsModal = () => {
+            els.metricsModal.classList.add('hidden');
+            // Stop auto-refresh when modal is closed
+            if (metricsRefreshInterval) {
+                clearInterval(metricsRefreshInterval);
+                metricsRefreshInterval = null;
+            }
+        };
+        
+        $('closeMetricsBtn').onclick = closeMetricsModal;
+        $('closeMetricsBackdrop').onclick = closeMetricsModal;
+
 
         // Settings
         $('saveApiBtn').onclick = () => {

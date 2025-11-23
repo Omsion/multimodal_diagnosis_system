@@ -123,19 +123,21 @@ async def get_metrics():
         
         # GPU (if available)
         gpu_info = {"available": False}
+        gpu_memory_percent = "N/A"
         try:
             gpus = GPUtil.getGPUs()
             if gpus:
                 gpu = gpus[0]  # Use first GPU
+                # Calculate memory percentage from numeric values
+                gpu_memory_percent = f"{(gpu.memoryUsed / gpu.memoryTotal * 100):.1f}%"
                 gpu_info = {
                     "available": True,
                     "load": f"{gpu.load * 100:.1f}%",
-                    "memory_used": f"{gpu.memoryUsed}MB",
-                    "memory_total": f"{gpu.memoryTotal}MB",
-                    "temperature": f"{gpu.temperature}°C"
+                    "memory_percent": gpu_memory_percent,
+                    "temperature": f"{gpu.temperature}°C" if hasattr(gpu, 'temperature') else "N/A"
                 }
-        except:
-            pass
+        except Exception as e:
+            logger.debug(f"GPU info not available: {e}")
         
         # Disk
         disk = psutil.disk_usage('/')
@@ -146,7 +148,7 @@ async def get_metrics():
             "memory_available": f"{memory.available / (1024**3):.1f}GB",
             "disk_usage": f"{disk.percent}%",
             "gpu_load": gpu_info.get("load", "N/A") if gpu_info["available"] else "N/A",
-            "gpu_memory": f"{(gpu_info.get('memory_used', 0) / gpu_info.get('memory_total', 1) * 100):.1f}%" if gpu_info["available"] else "N/A",
+            "gpu_memory": gpu_info.get("memory_percent", "N/A") if gpu_info["available"] else "N/A",
             "uptime": "Online",
             "models_loaded": sum([
                 diagnosis_service.dr_grader is not None,
