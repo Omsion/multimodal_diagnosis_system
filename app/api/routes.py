@@ -5,6 +5,7 @@ import logging
 import os
 from datetime import datetime
 from typing import Optional
+import asyncio
 
 from fastapi import APIRouter, File, UploadFile, HTTPException, Depends
 from fastapi.responses import JSONResponse
@@ -118,26 +119,41 @@ async def get_metrics():
     """Get system metrics including CPU, memory, GPU usage"""
     try:
         # CPU and Memory
-        cpu_percent = psutil.cpu_percent(interval=0.1)
+        # Use interval=None to avoid blocking. The first call might return 0.0 or a previous value, 
+        # but it won't block the event loop.
+        cpu_percent = psutil.cpu_percent(interval=None)
         memory = psutil.virtual_memory()
         
-        # GPU (if available)
+        # GPU (if available) - Run in thread pool to avoid blocking
         gpu_info = {"available": False}
-        gpu_memory_percent = "N/A"
+        
+        async def get_gpu_info_async():
+            try:
+                loop = asyncio.get_event_loop()
+                # Run GPUtil.getGPUs() in a separate thread
+                gpus = await loop.run_in_executor(None, GPUtil.getGPUs)
+                if gpus:
+                    gpu = gpus[0]  # Use first GPU
+                    # Calculate memory percentage from numeric values
+                    gpu_memory_percent = f"{(gpu.memoryUsed / gpu.memoryTotal * 100):.1f}%"
+                    return {
+                        "available": True,
+                        "load": f"{gpu.load * 100:.1f}%",
+                        "memory_percent": gpu_memory_percent,
+                        "temperature": f"{gpu.temperature}°C" if hasattr(gpu, 'temperature') else "N/A"
+                    }
+            except Exception as e:
+                logger.debug(f"GPU info check failed: {e}")
+            return {"available": False}
+
+        # Add timeout for GPU check (e.g., 2 seconds)
         try:
-            gpus = GPUtil.getGPUs()
-            if gpus:
-                gpu = gpus[0]  # Use first GPU
-                # Calculate memory percentage from numeric values
-                gpu_memory_percent = f"{(gpu.memoryUsed / gpu.memoryTotal * 100):.1f}%"
-                gpu_info = {
-                    "available": True,
-                    "load": f"{gpu.load * 100:.1f}%",
-                    "memory_percent": gpu_memory_percent,
-                    "temperature": f"{gpu.temperature}°C" if hasattr(gpu, 'temperature') else "N/A"
-                }
+            gpu_info = await asyncio.wait_for(get_gpu_info_async(), timeout=2.0)
+        except asyncio.TimeoutError:
+            logger.warning("GPU metrics check timed out")
+            gpu_info = {"available": False, "error": "Timeout"}
         except Exception as e:
-            logger.debug(f"GPU info not available: {e}")
+            logger.error(f"Error getting GPU metrics: {e}")
         
         # Disk
         disk = psutil.disk_usage('/')
