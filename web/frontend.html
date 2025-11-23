@@ -175,9 +175,12 @@
                 </h3>
                 <button id="closeMetricsBtn" class="text-slate-400 hover:text-white"><i class="fas fa-times"></i></button>
             </div>
-            <div id="metricsContent" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div id="metricsContent" class="grid grid-cols-2 lg:grid-cols-4 gap-6">
                 <!-- Metrics will be injected here -->
-                <div class="col-span-full text-center text-slate-500 py-8">正在获取数据...</div>
+                <div class="col-span-full flex flex-col items-center justify-center py-12 text-slate-500">
+                    <i class="fas fa-circle-notch fa-spin text-3xl mb-4 text-blue-500"></i>
+                    <p class="font-mono text-sm">正在获取系统指标...</p>
+                </div>
             </div>
         </div>
     </div>
@@ -261,106 +264,143 @@
       </div>
 
       <!-- Results Section -->
-      <div id="resultsSection" class="hidden bg-slate-900/50 min-h-[600px]">
+      <div id="resultsSection" class="hidden bg-slate-900/50 min-h-[600px] fade-in-up">
         
         <!-- Header -->
-        <div class="p-8 border-b border-white/5 bg-slate-800/30">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+        <div class="p-8 lg:p-10 border-b border-white/5 bg-slate-800/30">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
                 <div>
-                    <h2 class="text-2xl font-bold text-white flex items-center gap-3">
-                        <i class="fas fa-clipboard-check text-green-500"></i> 诊断报告
-                    </h2>
-                    <p class="text-xs font-mono text-slate-500 mt-2">ID: <span id="traceId" class="select-all">--</span></p>
+                    <div class="flex items-center gap-3 mb-2">
+                        <div class="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center text-green-400">
+                            <i class="fas fa-clipboard-check text-xl"></i>
+                        </div>
+                        <h2 class="text-3xl font-bold text-white tracking-tight">诊断报告</h2>
+                    </div>
+                    <p class="text-sm font-mono text-slate-500 pl-[3.25rem]">ID: <span id="traceId" class="select-all text-slate-400 hover:text-white transition-colors cursor-pointer" title="点击复制">--</span></p>
                 </div>
                 <div class="flex gap-3">
-                    <button id="newDiagnosisBtn" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-sm font-medium transition-colors">
-                        <i class="fas fa-redo mr-2"></i>重置
+                    <button id="newDiagnosisBtn" class="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl text-sm font-medium transition-all hover:shadow-lg hover:border-slate-600 flex items-center gap-2">
+                        <i class="fas fa-redo"></i> 重置诊断
                     </button>
-                    <button id="downloadReportBtn" class="px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-400 rounded-lg text-sm font-medium transition-colors">
-                        <i class="fas fa-download mr-2"></i>导出报告
+                    <button id="downloadReportBtn" class="px-5 py-2.5 bg-blue-600/10 hover:bg-blue-600/20 border border-blue-500/30 text-blue-400 rounded-xl text-sm font-medium transition-all hover:shadow-lg hover:border-blue-500/50 flex items-center gap-2">
+                        <i class="fas fa-download"></i> 导出报告
                     </button>
                 </div>
             </div>
 
             <!-- Metrics Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <!-- DR Grade -->
-                <div class="glass-card p-6 rounded-2xl relative overflow-hidden group">
-                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <i class="fas fa-microscope text-6xl text-white"></i>
+                <div class="glass-card p-6 rounded-2xl relative overflow-hidden group hover:bg-white/5 transition-colors border border-white/5">
+                    <div class="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110 duration-500">
+                        <i class="fas fa-microscope text-7xl text-white"></i>
                     </div>
-                    <div class="text-sm text-slate-400 mb-2">DR 分级结果</div>
-                    <div id="drGrade" class="text-4xl font-bold text-white mb-2">--</div>
-                    <div class="flex items-center gap-2">
-                        <div id="confidence" class="text-xs font-mono px-2 py-1 rounded bg-white/5 text-slate-300 border border-white/10">置信度: --%</div>
+                    <div class="relative z-10">
+                        <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">DR 分级结果</div>
+                        <div id="drGrade" class="text-4xl font-bold text-white mb-2 tracking-tight">--</div>
+                        <div class="flex items-center gap-2 mt-4">
+                            <div id="confidence" class="text-xs font-mono px-2.5 py-1 rounded-md bg-white/5 text-slate-300 border border-white/10 backdrop-blur-sm">
+                                置信度: --%
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Risk Level -->
-                <div class="glass-card p-6 rounded-2xl relative overflow-hidden group">
-                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <i class="fas fa-heart-pulse text-6xl text-white"></i>
+                <div class="glass-card p-6 rounded-2xl relative overflow-hidden group hover:bg-white/5 transition-colors border border-white/5">
+                    <div class="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110 duration-500">
+                        <i class="fas fa-heart-pulse text-7xl text-white"></i>
                     </div>
-                    <div class="text-sm text-slate-400 mb-2">风险评估</div>
-                    <div id="riskLevel" class="text-3xl font-bold text-white mb-2">--</div>
-                    <div id="riskDesc" class="text-xs text-slate-400">--</div>
+                    <div class="relative z-10">
+                        <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">风险评估</div>
+                        <div id="riskLevel" class="text-3xl font-bold text-white mb-2 tracking-tight">--</div>
+                        <div id="riskDesc" class="text-sm text-slate-400 font-medium">--</div>
+                    </div>
                 </div>
 
                 <!-- Processing Time -->
-                <div class="glass-card p-6 rounded-2xl relative overflow-hidden group">
-                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <i class="fas fa-clock text-6xl text-white"></i>
+                <div class="glass-card p-6 rounded-2xl relative overflow-hidden group hover:bg-white/5 transition-colors border border-white/5">
+                    <div class="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity transform group-hover:scale-110 duration-500">
+                        <i class="fas fa-clock text-7xl text-white"></i>
                     </div>
-                    <div class="text-sm text-slate-400 mb-2">系统耗时</div>
-                    <div id="processTime" class="text-3xl font-bold text-white mb-2">--s</div>
-                    <div class="text-xs text-slate-400">端到端处理时间</div>
+                    <div class="relative z-10">
+                        <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">系统耗时</div>
+                        <div id="processTime" class="text-4xl font-mono font-bold text-white mb-2 tracking-tight">--s</div>
+                        <div class="text-xs text-slate-500">端到端处理时间</div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- Detailed Analysis -->
-        <div class="p-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div class="p-8 lg:p-10 grid grid-cols-1 lg:grid-cols-2 gap-8">
             
             <!-- Left: Vision & Recommendations -->
-            <div class="space-y-6">
+            <div class="space-y-8">
                 <!-- Visual Features -->
-                <div class="glass-card rounded-2xl p-6">
-                    <h3 class="font-bold text-white mb-4 flex items-center gap-2">
-                        <i class="fas fa-eye text-blue-400"></i> 病灶视觉特征 (Qwen-VL)
-                    </h3>
-                    <div class="bg-slate-900/50 rounded-xl p-4 border border-slate-700/50">
-                        <p id="lesionDesc" class="text-slate-300 leading-relaxed text-sm whitespace-pre-wrap font-mono">--</p>
+                <div class="glass-card rounded-2xl p-1 border border-white/5">
+                    <div class="bg-slate-900/40 rounded-xl p-6">
+                        <h3 class="font-bold text-white mb-6 flex items-center gap-3 text-lg">
+                            <div class="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400">
+                                <i class="fas fa-eye"></i>
+                            </div>
+                            病灶视觉特征 (Qwen-VL)
+                        </h3>
+                        <div class="bg-slate-950/50 rounded-xl p-5 border border-slate-800/50 shadow-inner">
+                            <p id="lesionDesc" class="text-slate-300 leading-relaxed text-sm whitespace-pre-wrap font-mono tracking-wide">--</p>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Recommendations -->
-                <div class="glass-card rounded-2xl p-6">
-                     <h3 class="font-bold text-white mb-4 flex items-center gap-2">
-                        <i class="fas fa-user-md text-emerald-400"></i> 治疗建议
-                    </h3>
-                    <ul id="recommendations" class="space-y-3 text-sm text-slate-300"></ul>
+                <div class="glass-card rounded-2xl p-1 border border-white/5">
+                    <div class="bg-slate-900/40 rounded-xl p-6">
+                         <h3 class="font-bold text-white mb-6 flex items-center gap-3 text-lg">
+                            <div class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                                <i class="fas fa-user-md"></i>
+                            </div>
+                            治疗建议
+                        </h3>
+                        <ul id="recommendations" class="space-y-4"></ul>
+                    </div>
                 </div>
             </div>
 
             <!-- Right: Reasoning & Traceability -->
-            <div class="space-y-6">
+            <div class="space-y-8">
                 <!-- CoT -->
-                <div id="cotSection" class="glass-card rounded-2xl p-6 hidden">
-                    <h3 class="font-bold text-white mb-4 flex items-center gap-2">
-                        <i class="fas fa-brain text-purple-400"></i> AI 思维链推理 (DeepSeek-R1)
-                    </h3>
-                    <div class="bg-black/30 rounded-xl p-4 overflow-hidden border border-slate-700/50">
-                        <pre id="cotReasoning" class="text-xs text-green-400 font-mono whitespace-pre-wrap max-h-[300px] overflow-y-auto custom-scrollbar leading-relaxed">--</pre>
+                <div id="cotSection" class="glass-card rounded-2xl p-1 border border-white/5 hidden">
+                    <div class="bg-slate-900/40 rounded-xl p-6">
+                        <h3 class="font-bold text-white mb-6 flex items-center gap-3 text-lg">
+                            <div class="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400">
+                                <i class="fas fa-brain"></i>
+                            </div>
+                            AI 思维链推理 (DeepSeek-R1)
+                        </h3>
+                        <div class="bg-slate-950/80 rounded-xl p-5 overflow-hidden border border-slate-800/50 shadow-inner relative group">
+                            <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button class="text-xs bg-slate-800 text-slate-400 px-2 py-1 rounded hover:text-white" onclick="navigator.clipboard.writeText(document.getElementById('cotReasoning').innerText)">复制</button>
+                            </div>
+                            <pre id="cotReasoning" class="text-xs text-green-400/90 font-mono whitespace-pre-wrap max-h-[400px] overflow-y-auto custom-scrollbar leading-relaxed p-1">--</pre>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Traceability -->
-                <div id="traceSection" class="glass-card rounded-2xl p-6 hidden">
-                    <h3 class="font-bold text-white mb-4 flex items-center gap-2">
-                        <i class="fas fa-link text-indigo-400"></i> 知识溯源 (RAG)
-                    </h3>
-                    <div class="bg-indigo-900/20 rounded-xl p-4 border border-indigo-500/20">
-                        <p id="traceability" class="text-sm text-indigo-200 italic">--</p>
+                <div id="traceSection" class="glass-card rounded-2xl p-1 border border-white/5 hidden">
+                    <div class="bg-slate-900/40 rounded-xl p-6">
+                        <h3 class="font-bold text-white mb-6 flex items-center gap-3 text-lg">
+                            <div class="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400">
+                                <i class="fas fa-link"></i>
+                            </div>
+                            知识溯源 (RAG)
+                        </h3>
+                        <div class="bg-indigo-950/30 rounded-xl p-5 border border-indigo-500/20 relative overflow-hidden">
+                            <div class="absolute top-0 right-0 p-4 opacity-5">
+                                <i class="fas fa-book text-6xl text-indigo-400"></i>
+                            </div>
+                            <p id="traceability" class="text-sm text-indigo-200/80 italic leading-relaxed relative z-10">--</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -502,12 +542,19 @@
             
             if (existingMetrics.length === 0) {
                 // First time rendering - create full HTML structure
-                const metricsHtml = Object.entries(data).map(([key, value]) => `
-                    <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-                        <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">${key.replace(/_/g, ' ')}</div>
-                        <div class="text-xl font-mono font-bold text-blue-400" data-metric-key="${key}">${formatMetric(value)}</div>
+                const metricsHtml = Object.entries(data).map(([key, value]) => {
+                    const icon = getMetricIcon(key);
+                    const label = key.replace(/_/g, ' ');
+                    return `
+                    <div class="bg-slate-800/40 p-5 rounded-2xl border border-white/5 hover:bg-slate-800/60 transition-colors group">
+                        <div class="flex justify-between items-start mb-2">
+                            <div class="text-xs font-bold text-slate-500 uppercase tracking-wider">${label}</div>
+                            <i class="fas ${icon} text-slate-600 group-hover:text-blue-500 transition-colors"></i>
+                        </div>
+                        <div class="text-2xl font-mono font-bold text-white group-hover:text-blue-400 transition-colors" data-metric-key="${key}">${formatMetric(value)}</div>
                     </div>
-                `).join('');
+                    `;
+                }).join('');
                 els.metricsContent.innerHTML = metricsHtml;
             } else {
                 // Update only the values, not the entire HTML
@@ -648,9 +695,11 @@
         // 4. Recommendations
         const recs = data.structured_report.recommendations || [];
         $('recommendations').innerHTML = recs.map(r => 
-            `<li class="flex items-start gap-3 bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
-                <i class="fas fa-check-circle text-emerald-500 mt-1"></i>
-                <span>${r}</span>
+            `<li class="flex items-start gap-4 bg-slate-950/30 p-4 rounded-xl border border-slate-800/50 hover:border-emerald-500/30 transition-colors group">
+                <div class="mt-0.5 w-5 h-5 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-500/20 transition-colors">
+                    <i class="fas fa-check text-xs text-emerald-500"></i>
+                </div>
+                <span class="text-slate-300 text-sm leading-relaxed">${r}</span>
             </li>`
         ).join('');
 
@@ -723,6 +772,20 @@
     }
     function getRiskLevel(g) { return ['低风险', '轻微', '中度', '高风险', '极高危'][g] || '未知'; }
     function getRiskDesc(g) { return ['未发现明显病变', '轻度非增殖期', '中度非增殖期', '重度非增殖期', '增殖期视网膜病变'][g]; }
+    
+    function getMetricIcon(key) {
+        const icons = {
+            'cpu_usage': 'fa-microchip',
+            'memory_used': 'fa-memory',
+            'memory_available': 'fa-box-open',
+            'disk_usage': 'fa-hdd',
+            'gpu_load': 'fa-tachometer-alt',
+            'gpu_memory': 'fa-layer-group',
+            'uptime': 'fa-clock',
+            'models_loaded': 'fa-cubes'
+        };
+        return icons[key.toLowerCase()] || 'fa-chart-bar';
+    }
 
     // Start
     init();

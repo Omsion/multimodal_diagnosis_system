@@ -95,20 +95,6 @@ class Settings(BaseSettings):
         "sentence-transformers/all-MiniLM-L6-v2",
         description="嵌入模型名称"
     )
-    CHUNK_SIZE: int = Field(500, description="文档分块大小")
-    CHUNK_OVERLAP: int = Field(50, description="文档分块重叠大小")
-    TOP_K: int = Field(3, description="RAG检索返回的top-k文档数量")
-
-    # === API模型配置 ===
-    USE_API_MODELS: bool = Field(True, description="是否使用API模式")
-    DASHSCOPE_API_KEY: str = Field("", description="DashScope API密钥")
-    DEEPSEEK_API_KEY: str = Field("", description="DeepSeek API密钥")
-    QWEN_VL_MODEL_NAME: str = Field("qwen-vl-max", description="Qwen-VL API模型名称")
-    DEEPSEEK_MODEL_NAME: str = Field("deepseek-chat", description="DeepSeek API模型名称")
-
-    # === 缓存配置 ===
-    ENABLE_CACHE: bool = Field(True, description="启用缓存")
-    CACHE_TTL: int = Field(3600, description="缓存过期时间(秒)")
     MAX_CACHE_SIZE: int = Field(1000, description="最大缓存条目数")
 
     # === 安全配置 ===

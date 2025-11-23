@@ -21,11 +21,12 @@ class QwenVLAPIClient:
     """
     Qwen-VL API客户端
     
-    使用DashScope API调用Qwen-VL模型进行图像分析。
+    使用OpenAI SDK调用Qwen-VL模型 (兼容模式) 进行图像分析。
     """
     
     def __init__(self):
         self.api_key = settings.DASHSCOPE_API_KEY
+        self.base_url = settings.QWEN_BASE_URL
         self.model_name = settings.QWEN_VL_MODEL_NAME
         
         if not self.api_key:
@@ -43,11 +44,10 @@ class QwenVLAPIClient:
             str: 病灶描述文本
         """
         try:
-            import dashscope
-            from http import HTTPStatus
+            from openai import OpenAI
         except ImportError:
-            logger.error("未安装dashscope库，请运行 pip install dashscope")
-            return "系统错误：缺少dashscope依赖"
+            logger.error("未安装openai库，请运行 pip install openai")
+            return "系统错误：缺少openai依赖"
 
         if not self.api_key:
             return "配置错误：缺少DASHSCOPE_API_KEY"
@@ -62,29 +62,26 @@ class QwenVLAPIClient:
             # 构建Prompt
             prompt = self._build_medical_prompt(dr_grade_desc)
             
-            # 调用API
-            messages = [
-                {
-                    "role": "user",
-                    "content": [
-                        {"image": img_data},
-                        {"text": prompt}
-                    ]
-                }
-            ]
-            
-            response = dashscope.MultiModalConversation.call(
+            client = OpenAI(
+                api_key=self.api_key,
+                base_url=self.base_url,
+            )
+
+            completion = client.chat.completions.create(
                 model=self.model_name,
-                messages=messages,
-                api_key=self.api_key
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "image_url", "image_url": {"url": img_data}},
+                            {"type": "text", "text": prompt},
+                        ],
+                    }
+                ],
             )
             
-            if response.status_code == HTTPStatus.OK:
-                description = response.output.choices[0].message.content[0]["text"]
-                return self._post_process_description(description, dr_grade_desc)
-            else:
-                logger.error(f"Qwen-VL API调用失败: {response.code} - {response.message}")
-                return f"API调用失败: {response.message}"
+            description = completion.choices[0].message.content
+            return self._post_process_description(description, dr_grade_desc)
                 
         except Exception as e:
             logger.error(f"Qwen-VL API处理异常: {e}")
@@ -131,6 +128,8 @@ class QwenVLAPIClient:
 
     def _post_process_description(self, description: str, dr_grade_desc: str) -> str:
         """后处理生成的描述"""
+        if not description:
+            return "无法生成描述"
         return description.strip()
 
 
