@@ -352,16 +352,21 @@
                     </div>
                 </div>
 
-                <!-- Recommendations -->
-                <div class="glass-card rounded-2xl p-1 border border-white/5">
+                <!-- Traceability -->
+                <div id="traceSection" class="glass-card rounded-2xl p-1 border border-white/5 hidden">
                     <div class="bg-slate-900/40 rounded-xl p-6">
-                         <h3 class="font-bold text-white mb-6 flex items-center gap-3 text-lg">
-                            <div class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
-                                <i class="fas fa-user-md"></i>
+                        <h3 class="font-bold text-white mb-6 flex items-center gap-3 text-lg">
+                            <div class="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400">
+                                <i class="fas fa-link"></i>
                             </div>
-                            治疗建议
+                            知识溯源 (RAG)
                         </h3>
-                        <ul id="recommendations" class="space-y-4"></ul>
+                        <div class="bg-indigo-950/30 rounded-xl p-5 border border-indigo-500/20 relative overflow-hidden">
+                            <div class="absolute top-0 right-0 p-4 opacity-5">
+                                <i class="fas fa-book text-6xl text-indigo-400"></i>
+                            </div>
+                            <p id="traceability" class="text-sm text-indigo-200/80 italic leading-relaxed relative z-10">--</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -386,21 +391,16 @@
                     </div>
                 </div>
 
-                <!-- Traceability -->
-                <div id="traceSection" class="glass-card rounded-2xl p-1 border border-white/5 hidden">
+                <!-- Recommendations -->
+                <div class="glass-card rounded-2xl p-1 border border-white/5">
                     <div class="bg-slate-900/40 rounded-xl p-6">
-                        <h3 class="font-bold text-white mb-6 flex items-center gap-3 text-lg">
-                            <div class="w-8 h-8 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400">
-                                <i class="fas fa-link"></i>
+                         <h3 class="font-bold text-white mb-6 flex items-center gap-3 text-lg">
+                            <div class="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                                <i class="fas fa-user-md"></i>
                             </div>
-                            知识溯源 (RAG)
+                            治疗建议
                         </h3>
-                        <div class="bg-indigo-950/30 rounded-xl p-5 border border-indigo-500/20 relative overflow-hidden">
-                            <div class="absolute top-0 right-0 p-4 opacity-5">
-                                <i class="fas fa-book text-6xl text-indigo-400"></i>
-                            </div>
-                            <p id="traceability" class="text-sm text-indigo-200/80 italic leading-relaxed relative z-10">--</p>
-                        </div>
+                        <ul id="recommendations" class="space-y-4"></ul>
                     </div>
                 </div>
             </div>
