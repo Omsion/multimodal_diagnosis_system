@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>多模态智能眼底诊断系统</title>
+  <title>多模态智能眼底诊断系统 V3.0</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-  <!-- 引入 Google Fonts: Inter -->
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   
   <script>
     tailwind.config = {
@@ -15,11 +15,23 @@
         extend: {
           fontFamily: {
             sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
           },
           colors: {
             primary: '#3b82f6',
             secondary: '#6366f1',
             dark: '#0f172a',
+            surface: '#1e293b',
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'float': 'float 6s ease-in-out infinite',
+          },
+          keyframes: {
+            float: {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-10px)' },
+            }
           }
         }
       }
@@ -28,316 +40,328 @@
 
   <style>
     body {
-      background: radial-gradient(circle at top center, #1e293b 0%, #0f172a 100%);
-      color: #334155;
+      background: radial-gradient(circle at top center, #1e293b 0%, #020617 100%);
+      color: #e2e8f0;
     }
     
-    /* Glassmorphism Card */
+    /* Glassmorphism */
     .glass-panel {
-      background: rgba(255, 255, 255, 0.98);
+      background: rgba(30, 41, 59, 0.7);
       backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+
+    .glass-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
     }
 
     /* Custom Scrollbar */
-    ::-webkit-scrollbar {
-      width: 8px;
-    }
-    ::-webkit-scrollbar-track {
-      background: #f1f1f1; 
-    }
-    ::-webkit-scrollbar-thumb {
-      background: #cbd5e1; 
-      border-radius: 4px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-      background: #94a3b8; 
-    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #64748b; }
 
     /* Animations */
-    .fade-in-up {
-      animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    
+    .fade-in-up { animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
     @keyframes fadeInUp {
       from { opacity: 0; transform: translateY(20px); }
       to { opacity: 1; transform: translateY(0); }
     }
 
-    .pulse-soft {
-      animation: pulseSoft 2s infinite;
-    }
-    @keyframes pulseSoft {
-      0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
-      70% { box-shadow: 0 0 0 15px rgba(59, 130, 246, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
-    }
-
     .drag-active {
       border-color: #3b82f6 !important;
-      background-color: #eff6ff !important;
+      background-color: rgba(59, 130, 246, 0.1) !important;
       transform: scale(1.01);
     }
 
-    /* Severity Badges */
-    .grade-badge-0 { background-color: #d1fae5; color: #065f46; border: 1px solid #34d399; }
-    .grade-badge-1 { background-color: #fef9c3; color: #854d0e; border: 1px solid #facc15; }
-    .grade-badge-2 { background-color: #ffedd5; color: #9a3412; border: 1px solid #fb923c; }
-    .grade-badge-3 { background-color: #fee2e2; color: #991b1b; border: 1px solid #f87171; }
-    .grade-badge-4 { background-color: #7f1d1d; color: #fecaca; border: 1px solid #ef4444; }
-
     /* Loader */
     .medical-loader {
-      width: 48px;
-      height: 48px;
-      border: 3px solid #e2e8f0;
+      width: 64px;
+      height: 64px;
+      position: relative;
+    }
+    .medical-loader::before, .medical-loader::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
       border-radius: 50%;
+      border: 4px solid transparent;
       border-top-color: #3b82f6;
-      animation: spin 1s linear infinite;
+    }
+    .medical-loader::before { animation: spin 1.5s linear infinite; }
+    .medical-loader::after { 
+      border-top-color: #6366f1; 
+      animation: spin 1s linear infinite reverse; 
+      margin: 8px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
-<body class="min-h-screen flex flex-col antialiased font-sans selection:bg-blue-500 selection:text-white">
+<body class="min-h-screen flex flex-col antialiased font-sans selection:bg-blue-500 selection:text-white overflow-x-hidden">
+
+  <!-- Background Effects -->
+  <div class="fixed inset-0 pointer-events-none overflow-hidden">
+    <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[120px] animate-float"></div>
+    <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-500/10 rounded-full blur-[120px] animate-float" style="animation-delay: -3s;"></div>
+  </div>
 
   <!-- Navbar -->
-  <nav class="w-full z-50 px-6 py-4 flex justify-between items-center">
-    <div class="flex items-center gap-3">
-      <div class="bg-blue-600 w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30 text-white">
-        <i class="fas fa-eye text-xl"></i>
+  <nav class="w-full z-50 px-6 py-4 flex justify-between items-center border-b border-white/5 bg-slate-900/50 backdrop-blur-md sticky top-0">
+    <div class="flex items-center gap-4">
+      <div class="bg-gradient-to-br from-blue-600 to-indigo-600 w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 text-white">
+        <i class="fas fa-eye text-lg"></i>
       </div>
       <div>
-        <h1 class="text-white text-xl font-bold tracking-tight">RetinaAI <span class="text-blue-400 font-light">Diagnosis</span></h1>
-        <p class="text-slate-400 text-xs">多模态智能眼底筛查系统</p>
+        <h1 class="text-white text-lg font-bold tracking-tight">RetinaAI <span class="text-blue-400 font-light">Diagnosis</span></h1>
+        <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+            <p class="text-slate-400 text-xs font-mono">System Online</p>
+        </div>
       </div>
     </div>
-    <button id="openSettingsBtn" class="text-slate-300 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/10">
-      <i class="fas fa-cog text-lg"></i>
-    </button>
+    <div class="flex items-center gap-3">
+        <button id="metricsBtn" class="text-slate-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/5" title="系统监控">
+            <i class="fas fa-chart-line"></i>
+        </button>
+        <button id="openSettingsBtn" class="text-slate-400 hover:text-white transition-colors p-2 rounded-lg hover:bg-white/5" title="设置">
+            <i class="fas fa-cog"></i>
+        </button>
+    </div>
   </nav>
 
   <!-- Main Container -->
-  <main class="flex-1 container mx-auto px-4 py-6 max-w-5xl relative z-10">
+  <main class="flex-1 container mx-auto px-4 py-8 max-w-6xl relative z-10">
     
-    <!-- Settings Modal (Hidden by default) -->
-    <div id="settingsModal" class="fixed inset-0 z-50 hidden">
-      <div class="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" id="closeSettingsBackdrop"></div>
-      <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white rounded-2xl shadow-2xl p-6 fade-in-up">
+    <!-- Settings Modal -->
+    <div id="settingsModal" class="fixed inset-0 z-[60] hidden">
+      <div class="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" id="closeSettingsBackdrop"></div>
+      <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-md glass-panel rounded-2xl p-6 fade-in-up border border-slate-700">
         <div class="flex justify-between items-center mb-6">
-          <h3 class="text-xl font-bold text-slate-800">系统配置</h3>
-          <button id="closeSettingsBtn" class="text-slate-400 hover:text-slate-600"><i class="fas fa-times text-xl"></i></button>
+          <h3 class="text-lg font-bold text-white">系统配置</h3>
+          <button id="closeSettingsBtn" class="text-slate-400 hover:text-white"><i class="fas fa-times"></i></button>
         </div>
         
         <div class="space-y-6">
           <div>
-            <label class="block text-sm font-medium text-slate-700 mb-2">API 服务器地址</label>
+            <label class="block text-xs font-medium text-slate-400 mb-2 uppercase tracking-wider">API 服务器地址</label>
             <div class="flex gap-2">
-              <input type="url" id="apiUrl" class="flex-1 px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="http://localhost:8000">
-              <button id="saveApiBtn" class="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 text-sm font-medium">保存</button>
+              <input type="url" id="apiUrl" class="flex-1 px-4 py-2 bg-slate-900/50 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-white placeholder-slate-600" placeholder="http://localhost:8000">
+              <button id="saveApiBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 text-sm font-medium transition-colors">保存</button>
             </div>
           </div>
 
-          <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
+          <div class="glass-card p-4 rounded-xl">
             <div class="flex justify-between items-center mb-4">
-              <span class="text-sm font-medium text-slate-700">服务状态监控</span>
-              <div class="flex items-center">
-                <div id="healthIndicator" class="w-2.5 h-2.5 rounded-full bg-slate-300 mr-2"></div>
-                <span id="healthStatus" class="text-xs text-slate-500 font-mono">未连接</span>
-              </div>
+              <span class="text-sm font-medium text-slate-300">知识库管理</span>
             </div>
-            
-            <div class="grid grid-cols-2 gap-3">
-              <button id="checkHealthBtn" class="flex items-center justify-center gap-2 py-2 px-3 bg-white border border-slate-200 rounded-lg text-sm hover:bg-blue-50 text-blue-600 transition-colors">
-                <i class="fas fa-heartbeat"></i> 检查连接
-              </button>
-              <button id="reloadKBBtn" class="flex items-center justify-center gap-2 py-2 px-3 bg-white border border-slate-200 rounded-lg text-sm hover:bg-green-50 text-green-600 transition-colors">
-                <i class="fas fa-database"></i> 更新知识库
-              </button>
-            </div>
-            
-            <div id="modelStatus" class="hidden mt-4 pt-4 border-t border-slate-200 grid grid-cols-2 gap-2 text-xs">
-               <div class="flex justify-between"><span>DR模型</span><span id="statusDR" class="font-bold text-slate-400">●</span></div>
-               <div class="flex justify-between"><span>Qwen-VL</span><span id="statusQwen" class="font-bold text-slate-400">●</span></div>
-               <div class="flex justify-between"><span>R1-7B</span><span id="statusR1" class="font-bold text-slate-400">●</span></div>
-               <div class="flex justify-between"><span>RAG库</span><span id="statusRAG" class="font-bold text-slate-400">●</span></div>
-            </div>
+            <button id="reloadKBBtn" class="w-full flex items-center justify-center gap-2 py-2 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-sm text-slate-300 transition-all">
+              <i class="fas fa-sync-alt"></i> 重新加载 RAG 知识库
+            </button>
           </div>
-          
-          <button id="viewLogsBtn" class="w-full py-2 text-slate-500 text-sm hover:text-blue-600 underline">查看系统日志</button>
         </div>
       </div>
     </div>
 
+    <!-- Metrics Modal -->
+    <div id="metricsModal" class="fixed inset-0 z-[60] hidden">
+        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" id="closeMetricsBackdrop"></div>
+        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-2xl glass-panel rounded-2xl p-6 fade-in-up border border-slate-700">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fas fa-server text-blue-500"></i> 系统实时监控
+                </h3>
+                <button id="closeMetricsBtn" class="text-slate-400 hover:text-white"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="metricsContent" class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <!-- Metrics will be injected here -->
+                <div class="col-span-full text-center text-slate-500 py-8">正在获取数据...</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Main Workspace -->
-    <div class="glass-panel rounded-3xl overflow-hidden shadow-2xl fade-in-up min-h-[600px]">
+    <div class="glass-panel rounded-3xl overflow-hidden min-h-[600px] relative">
       
-      <!-- Initial State / Upload Area -->
-      <div id="uploadSection" class="p-8 md:p-12">
+      <!-- Upload Section -->
+      <div id="uploadSection" class="p-8 md:p-16 flex flex-col items-center justify-center min-h-[600px] transition-all duration-500">
         
+        <div class="text-center mb-10">
+            <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">智能眼底病变诊断</h2>
+            <p class="text-slate-400 max-w-lg mx-auto">上传眼底图像，利用 ResNet152、Qwen-VL 和 DeepSeek-R1 进行多模态分析与诊断。</p>
+        </div>
+
         <!-- Settings Toggles -->
-        <div class="flex justify-center gap-6 mb-8">
-            <label class="flex items-center cursor-pointer group">
+        <div class="flex flex-wrap justify-center gap-6 mb-10">
+            <label class="flex items-center cursor-pointer group select-none">
               <div class="relative">
                 <input type="checkbox" id="enableRag" checked class="peer sr-only">
-                <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
               </div>
-              <span class="ml-3 text-sm font-medium text-slate-600 group-hover:text-blue-600 transition-colors">RAG 知识增强</span>
+              <span class="ml-3 text-sm font-medium text-slate-400 group-hover:text-blue-400 transition-colors">RAG 知识增强</span>
             </label>
 
-            <label class="flex items-center cursor-pointer group">
+            <label class="flex items-center cursor-pointer group select-none">
               <div class="relative">
                 <input type="checkbox" id="enableCot" checked class="peer sr-only">
-                <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
               </div>
-              <span class="ml-3 text-sm font-medium text-slate-600 group-hover:text-purple-600 transition-colors">CoT 思维链</span>
+              <span class="ml-3 text-sm font-medium text-slate-400 group-hover:text-purple-400 transition-colors">CoT 思维链</span>
             </label>
         </div>
 
         <!-- Drop Zone -->
-        <div id="dropZone" class="relative group border-2 border-dashed border-slate-300 rounded-2xl p-10 text-center transition-all duration-300 hover:border-blue-500 hover:bg-blue-50/50 cursor-pointer bg-slate-50">
+        <div id="dropZone" class="w-full max-w-xl relative group border-2 border-dashed border-slate-600 rounded-2xl p-12 text-center transition-all duration-300 hover:border-blue-500 hover:bg-slate-800/50 cursor-pointer">
           <input type="file" id="imageInput" accept="image/*" class="hidden">
           
           <!-- Placeholder -->
           <div id="uploadPlaceholder" class="transition-opacity duration-300">
-            <div class="w-20 h-20 bg-white rounded-full shadow-md flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300">
-              <i class="fas fa-cloud-upload-alt text-4xl text-blue-500"></i>
+            <div class="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300 border border-slate-700 group-hover:border-blue-500/50">
+              <i class="fas fa-cloud-upload-alt text-3xl text-blue-500"></i>
             </div>
-            <h3 class="text-xl font-bold text-slate-700 mb-2">点击或拖拽上传眼底图像</h3>
-            <p class="text-slate-500 text-sm max-w-md mx-auto">支持 JPG, PNG, BMP 格式。建议上传清晰的眼底相机拍摄图像。</p>
+            <h3 class="text-xl font-bold text-white mb-2">点击或拖拽上传图像</h3>
+            <p class="text-slate-500 text-sm">支持 JPG, PNG 格式 (Max 10MB)</p>
           </div>
 
-          <!-- Preview (Hidden initially) -->
+          <!-- Preview -->
           <div id="imagePreview" class="hidden">
-            <div class="relative max-w-md mx-auto rounded-xl overflow-hidden shadow-lg group-hover:shadow-xl transition-shadow">
+            <div class="relative rounded-xl overflow-hidden shadow-2xl border border-slate-700 group-hover:border-blue-500/50 transition-colors">
                <img id="previewImg" class="w-full object-cover max-h-[400px]" alt="预览">
-               <div class="absolute bottom-0 left-0 right-0 bg-black/50 backdrop-blur-sm p-2 text-white text-xs text-center" id="imageInfo"></div>
-               <button id="removeImgBtn" class="absolute top-2 right-2 bg-white/90 text-slate-700 rounded-full w-8 h-8 flex items-center justify-center hover:bg-red-50 hover:text-red-600 transition-colors shadow-sm">
-                 <i class="fas fa-trash"></i>
+               <div class="absolute bottom-0 left-0 right-0 bg-black/70 backdrop-blur-sm p-3 text-white text-xs font-mono flex justify-between items-center" id="imageInfo"></div>
+               <button id="removeImgBtn" class="absolute top-3 right-3 bg-black/50 hover:bg-red-500/80 text-white rounded-full w-8 h-8 flex items-center justify-center transition-all backdrop-blur-sm">
+                 <i class="fas fa-times"></i>
                </button>
             </div>
           </div>
         </div>
 
         <!-- Action Button -->
-        <div class="mt-8 text-center">
-          <button id="diagnoseBtn" disabled class="px-10 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none transition-all duration-300 text-lg flex items-center justify-center mx-auto gap-2 w-full md:w-auto min-w-[200px]">
+        <div class="mt-10">
+          <button id="diagnoseBtn" disabled class="px-12 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none transition-all duration-300 text-lg flex items-center gap-3">
             <i class="fas fa-wand-magic-sparkles"></i>
             开始智能诊断
           </button>
         </div>
       </div>
 
-      <!-- Loading Screen (Overlay) -->
-      <div id="loadingState" class="hidden absolute inset-0 bg-white/90 backdrop-blur-sm z-20 flex flex-col items-center justify-center fade-in-up">
-        <div class="medical-loader mb-6"></div>
-        <h3 class="text-2xl font-bold text-slate-800 mb-2">正在进行多模态分析</h3>
-        <p class="text-slate-500 mb-8">AI 正在整合视觉特征与医学知识库...</p>
+      <!-- Loading Screen -->
+      <div id="loadingState" class="hidden absolute inset-0 bg-slate-900/90 backdrop-blur-md z-20 flex flex-col items-center justify-center fade-in-up">
+        <div class="medical-loader mb-8"></div>
+        <h3 class="text-2xl font-bold text-white mb-2">正在进行多模态分析</h3>
+        <p class="text-slate-400 mb-10 font-mono text-sm" id="loadingText">AI 正在整合视觉特征与医学知识库...</p>
         
-        <div class="w-64 h-2 bg-slate-100 rounded-full overflow-hidden">
-          <div id="progressBar" class="h-full bg-blue-600 rounded-full transition-all duration-500" style="width: 0%"></div>
+        <div class="w-80 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+          <div id="progressBar" class="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-500 relative" style="width: 0%">
+            <div class="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-r from-transparent to-white/30"></div>
+          </div>
         </div>
-        <div id="progressSteps" class="mt-4 text-sm font-medium text-blue-600 h-6">
-           初始化引擎...
-        </div>
+        <div id="progressSteps" class="mt-4 text-xs font-mono text-blue-400 h-6">初始化...</div>
       </div>
 
       <!-- Results Section -->
-      <div id="resultsSection" class="hidden bg-slate-50 border-t border-slate-100">
+      <div id="resultsSection" class="hidden bg-slate-900/50 min-h-[600px]">
         
-        <!-- Header Summary -->
-        <div class="p-8 bg-white">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <!-- Header -->
+        <div class="p-8 border-b border-white/5 bg-slate-800/30">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                 <div>
-                    <h2 class="text-2xl font-bold text-slate-800">诊断分析报告</h2>
-                    <p class="text-sm text-slate-400 mt-1">生成时间: <span id="reportTime">--</span></p>
+                    <h2 class="text-2xl font-bold text-white flex items-center gap-3">
+                        <i class="fas fa-clipboard-check text-green-500"></i> 诊断报告
+                    </h2>
+                    <p class="text-xs font-mono text-slate-500 mt-2">ID: <span id="traceId" class="select-all">--</span></p>
                 </div>
                 <div class="flex gap-3">
-                    <button id="newDiagnosisBtn" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition-colors">
-                        <i class="fas fa-redo mr-1"></i> 新诊断
+                    <button id="newDiagnosisBtn" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-sm font-medium transition-colors">
+                        <i class="fas fa-redo mr-2"></i>重置
                     </button>
-                    <button id="downloadReportBtn" class="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg text-sm font-medium transition-colors">
-                        <i class="fas fa-download mr-1"></i> 导出
+                    <button id="downloadReportBtn" class="px-4 py-2 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/30 text-blue-400 rounded-lg text-sm font-medium transition-colors">
+                        <i class="fas fa-download mr-2"></i>导出报告
                     </button>
                 </div>
             </div>
 
-            <!-- Core Metrics Cards -->
+            <!-- Metrics Cards -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <!-- DR Grade -->
-                <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
-                    <div class="text-sm text-slate-500 mb-1 flex justify-between">
-                        <span>DR 分级</span>
-                        <i class="fas fa-microscope text-blue-400"></i>
+                <div class="glass-card p-6 rounded-2xl relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <i class="fas fa-microscope text-6xl text-white"></i>
                     </div>
-                    <div id="drGrade" class="text-3xl font-bold text-slate-800 mb-1">--</div>
-                    <div id="confidence" class="text-xs font-mono text-slate-400 bg-slate-50 inline-block px-2 py-1 rounded">置信度: --%</div>
+                    <div class="text-sm text-slate-400 mb-2">DR 分级结果</div>
+                    <div id="drGrade" class="text-4xl font-bold text-white mb-2">--</div>
+                    <div class="flex items-center gap-2">
+                        <div id="confidence" class="text-xs font-mono px-2 py-1 rounded bg-white/5 text-slate-300 border border-white/10">置信度: --%</div>
+                    </div>
                 </div>
 
                 <!-- Risk Level -->
-                <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
-                     <div class="text-sm text-slate-500 mb-1 flex justify-between">
-                        <span>风险评估</span>
-                        <i class="fas fa-shield-alt text-emerald-400"></i>
+                <div class="glass-card p-6 rounded-2xl relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <i class="fas fa-heart-pulse text-6xl text-white"></i>
                     </div>
-                    <div id="riskLevel" class="text-3xl font-bold text-slate-800 mb-1">--</div>
-                    <div id="riskDesc" class="text-xs text-slate-500">--</div>
+                    <div class="text-sm text-slate-400 mb-2">风险评估</div>
+                    <div id="riskLevel" class="text-3xl font-bold text-white mb-2">--</div>
+                    <div id="riskDesc" class="text-xs text-slate-400">--</div>
                 </div>
 
-                <!-- Action -->
-                <div class="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
-                     <div class="text-sm text-slate-500 mb-1 flex justify-between">
-                        <span>建议行动</span>
-                        <i class="fas fa-user-md text-purple-400"></i>
+                <!-- Processing Time -->
+                <div class="glass-card p-6 rounded-2xl relative overflow-hidden group">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <i class="fas fa-clock text-6xl text-white"></i>
                     </div>
-                    <div id="urgency" class="text-3xl font-bold text-slate-800 mb-1">--</div>
-                    <div id="urgencyDesc" class="text-xs text-slate-500">--</div>
+                    <div class="text-sm text-slate-400 mb-2">系统耗时</div>
+                    <div id="processTime" class="text-3xl font-bold text-white mb-2">--s</div>
+                    <div class="text-xs text-slate-400">端到端处理时间</div>
                 </div>
             </div>
         </div>
 
-        <!-- Deep Analysis Grid -->
+        <!-- Detailed Analysis -->
         <div class="p-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
             
-            <!-- Left Column: Visual & Description -->
+            <!-- Left: Vision & Recommendations -->
             <div class="space-y-6">
-                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                    <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                        <span class="w-1 h-6 bg-blue-500 rounded-full"></span>
-                        病灶视觉特征
+                <!-- Visual Features -->
+                <div class="glass-card rounded-2xl p-6">
+                    <h3 class="font-bold text-white mb-4 flex items-center gap-2">
+                        <i class="fas fa-eye text-blue-400"></i> 病灶视觉特征 (Qwen-VL)
                     </h3>
-                    <p id="lesionDesc" class="text-slate-600 leading-relaxed text-sm whitespace-pre-wrap font-mono bg-slate-50 p-4 rounded-xl">等待分析...</p>
-                </div>
-
-                <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-                     <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                        <span class="w-1 h-6 bg-emerald-500 rounded-full"></span>
-                        治疗与随访建议
-                    </h3>
-                    <ul id="recommendations" class="space-y-3 text-sm text-slate-700"></ul>
-                </div>
-            </div>
-
-            <!-- Right Column: AI Reasoning -->
-            <div class="space-y-6">
-                <!-- CoT -->
-                <div id="cotSection" class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hidden">
-                    <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                        <span class="w-1 h-6 bg-purple-500 rounded-full"></span>
-                        AI 思维链推理 (CoT)
-                    </h3>
-                    <div class="bg-slate-900 rounded-xl p-4 overflow-hidden">
-                        <pre id="cotReasoning" class="text-xs text-green-400 font-mono whitespace-pre-wrap max-h-[300px] overflow-y-auto custom-scrollbar"></pre>
+                    <div class="bg-slate-900/50 rounded-xl p-4 border border-slate-700/50">
+                        <p id="lesionDesc" class="text-slate-300 leading-relaxed text-sm whitespace-pre-wrap font-mono">--</p>
                     </div>
                 </div>
 
-                <!-- RAG Knowledge -->
-                <div id="knowledgeSection" class="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 hidden">
-                    <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                        <span class="w-1 h-6 bg-indigo-500 rounded-full"></span>
-                        医学知识库检索 (RAG)
+                <!-- Recommendations -->
+                <div class="glass-card rounded-2xl p-6">
+                     <h3 class="font-bold text-white mb-4 flex items-center gap-2">
+                        <i class="fas fa-user-md text-emerald-400"></i> 治疗建议
                     </h3>
-                    <div id="retrievedKnowledge" class="space-y-3"></div>
+                    <ul id="recommendations" class="space-y-3 text-sm text-slate-300"></ul>
+                </div>
+            </div>
+
+            <!-- Right: Reasoning & Traceability -->
+            <div class="space-y-6">
+                <!-- CoT -->
+                <div id="cotSection" class="glass-card rounded-2xl p-6 hidden">
+                    <h3 class="font-bold text-white mb-4 flex items-center gap-2">
+                        <i class="fas fa-brain text-purple-400"></i> AI 思维链推理 (DeepSeek-R1)
+                    </h3>
+                    <div class="bg-black/30 rounded-xl p-4 overflow-hidden border border-slate-700/50">
+                        <pre id="cotReasoning" class="text-xs text-green-400 font-mono whitespace-pre-wrap max-h-[300px] overflow-y-auto custom-scrollbar leading-relaxed">--</pre>
+                    </div>
+                </div>
+
+                <!-- Traceability -->
+                <div id="traceSection" class="glass-card rounded-2xl p-6 hidden">
+                    <h3 class="font-bold text-white mb-4 flex items-center gap-2">
+                        <i class="fas fa-link text-indigo-400"></i> 知识溯源 (RAG)
+                    </h3>
+                    <div class="bg-indigo-900/20 rounded-xl p-4 border border-indigo-500/20">
+                        <p id="traceability" class="text-sm text-indigo-200 italic">--</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -346,202 +370,161 @@
     </div>
 
     <!-- Footer -->
-    <footer class="text-center py-6">
-        <p class="text-slate-500 text-xs">
-            © 2024 Multimodal Diagnosis System. For Research Use Only. <br>
-            本系统基于 Qwen-VL 与 DeepSeek-R1 蒸馏模型构建。
+    <footer class="text-center py-8 border-t border-white/5 mt-8">
+        <p class="text-slate-600 text-xs font-mono">
+            © 2024 Multimodal Diagnosis System. Research Preview.<br>
+            Powered by PyTorch, FastAPI, Qwen-VL & DeepSeek-R1.
         </p>
     </footer>
 
-    <!-- Logs Modal (Hidden) -->
-    <div id="logsSection" class="fixed inset-0 z-50 hidden">
-        <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" onclick="toggleLogs()"></div>
-        <div class="absolute bottom-0 w-full h-2/3 bg-slate-900 rounded-t-3xl p-6 flex flex-col fade-in-up">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-white font-mono">System Logs</h3>
-                <button id="closeLogsBtn" class="text-slate-400 hover:text-white"><i class="fas fa-times"></i></button>
-            </div>
-            <div id="logsContainer" class="flex-1 bg-black/50 rounded-xl p-4 overflow-y-auto font-mono text-xs text-green-500 whitespace-pre-wrap"></div>
-        </div>
-    </div>
-
   </main>
 
+  <!-- Toast Container -->
+  <div id="toastContainer" class="fixed top-5 right-5 z-[100] flex flex-col gap-2"></div>
+
   <script>
-    // --- Global Variables ---
+    // --- Configuration ---
+    const DEFAULT_API_URL = 'http://localhost:8000';
     let currentFile = null;
     let diagnosisData = null;
 
-    // --- DOM References ---
+    // --- DOM Elements ---
+    const $ = (id) => document.getElementById(id);
     const els = {
-        // Modal
-        settingsModal: document.getElementById('settingsModal'),
-        openSettingsBtn: document.getElementById('openSettingsBtn'),
-        closeSettingsBtn: document.getElementById('closeSettingsBtn'),
-        closeSettingsBackdrop: document.getElementById('closeSettingsBackdrop'),
-        
-        // Settings
-        apiUrl: document.getElementById('apiUrl'),
-        saveApiBtn: document.getElementById('saveApiBtn'),
-        checkHealthBtn: document.getElementById('checkHealthBtn'),
-        reloadKBBtn: document.getElementById('reloadKBBtn'),
-        viewLogsBtn: document.getElementById('viewLogsBtn'),
-        healthStatus: document.getElementById('healthStatus'),
-        healthIndicator: document.getElementById('healthIndicator'),
-        modelStatus: document.getElementById('modelStatus'),
-        
-        // Main UI
-        dropZone: document.getElementById('dropZone'),
-        imageInput: document.getElementById('imageInput'),
-        uploadPlaceholder: document.getElementById('uploadPlaceholder'),
-        imagePreview: document.getElementById('imagePreview'),
-        previewImg: document.getElementById('previewImg'),
-        imageInfo: document.getElementById('imageInfo'),
-        removeImgBtn: document.getElementById('removeImgBtn'),
-        
-        // Controls
-        enableRag: document.getElementById('enableRag'),
-        enableCot: document.getElementById('enableCot'),
-        diagnoseBtn: document.getElementById('diagnoseBtn'),
-        
-        // Loading & Results
-        loadingState: document.getElementById('loadingState'),
-        progressBar: document.getElementById('progressBar'),
-        progressSteps: document.getElementById('progressSteps'),
-        resultsSection: document.getElementById('resultsSection'),
-        uploadSection: document.getElementById('uploadSection'),
-        
-        // Logs
-        logsSection: document.getElementById('logsSection'),
-        logsContainer: document.getElementById('logsContainer'),
-        closeLogsBtn: document.getElementById('closeLogsBtn')
+        settingsModal: $('settingsModal'),
+        metricsModal: $('metricsModal'),
+        uploadSection: $('uploadSection'),
+        resultsSection: $('resultsSection'),
+        loadingState: $('loadingState'),
+        dropZone: $('dropZone'),
+        imageInput: $('imageInput'),
+        previewImg: $('previewImg'),
+        progressBar: $('progressBar'),
+        progressSteps: $('progressSteps'),
+        apiUrl: $('apiUrl'),
+        metricsContent: $('metricsContent')
     };
 
     // --- Initialization ---
     function init() {
-        loadSavedApiUrl();
+        els.apiUrl.value = localStorage.getItem('api_url') || DEFAULT_API_URL;
         setupEventListeners();
-        checkApiHealth(); // Auto check on load
+        // Initial health check
+        checkHealth();
     }
 
-    function loadSavedApiUrl() {
-        const savedUrl = localStorage.getItem('api_url') || 'http://localhost:8000';
-        els.apiUrl.value = savedUrl;
+    function getApiUrl() {
+        return els.apiUrl.value.replace(/\/$/, '');
     }
 
     // --- Event Listeners ---
     function setupEventListeners() {
-        // Modal Control
-        els.openSettingsBtn.onclick = () => els.settingsModal.classList.remove('hidden');
-        els.closeSettingsBtn.onclick = () => els.settingsModal.classList.add('hidden');
-        els.closeSettingsBackdrop.onclick = () => els.settingsModal.classList.add('hidden');
+        // Modals
+        $('openSettingsBtn').onclick = () => els.settingsModal.classList.remove('hidden');
+        $('closeSettingsBtn').onclick = () => els.settingsModal.classList.add('hidden');
+        $('closeSettingsBackdrop').onclick = () => els.settingsModal.classList.add('hidden');
+        
+        $('metricsBtn').onclick = () => {
+            els.metricsModal.classList.remove('hidden');
+            fetchMetrics();
+        };
+        $('closeMetricsBtn').onclick = () => els.metricsModal.classList.add('hidden');
+        $('closeMetricsBackdrop').onclick = () => els.metricsModal.classList.add('hidden');
 
-        // API Settings
-        els.saveApiBtn.onclick = saveApiUrl;
-        els.checkHealthBtn.onclick = checkApiHealth;
-        els.reloadKBBtn.onclick = reloadKnowledgeBase;
-        els.viewLogsBtn.onclick = toggleLogs;
-        els.closeLogsBtn.onclick = toggleLogs;
+        // Settings
+        $('saveApiBtn').onclick = () => {
+            const url = els.apiUrl.value.trim();
+            if(url) {
+                localStorage.setItem('api_url', url);
+                showToast('API 地址已保存', 'success');
+                els.settingsModal.classList.add('hidden');
+            }
+        };
+        $('reloadKBBtn').onclick = reloadKnowledgeBase;
 
-        // File Upload
+        // Upload
         els.dropZone.onclick = (e) => {
-            if(e.target !== els.removeImgBtn && !els.removeImgBtn.contains(e.target)) {
+            if(e.target.id !== 'removeImgBtn' && !e.target.closest('#removeImgBtn')) {
                 els.imageInput.click();
             }
         };
         els.dropZone.ondragover = (e) => { e.preventDefault(); els.dropZone.classList.add('drag-active'); };
         els.dropZone.ondragleave = (e) => { e.preventDefault(); els.dropZone.classList.remove('drag-active'); };
-        els.dropZone.ondrop = handleDrop;
+        els.dropZone.ondrop = (e) => {
+            e.preventDefault();
+            els.dropZone.classList.remove('drag-active');
+            if(e.dataTransfer.files.length) processFile(e.dataTransfer.files[0]);
+        };
         els.imageInput.onchange = (e) => processFile(e.target.files[0]);
-        els.removeImgBtn.onclick = (e) => {
+        $('removeImgBtn').onclick = (e) => {
             e.stopPropagation();
             resetUpload();
-        }
+        };
 
         // Actions
-        els.diagnoseBtn.onclick = startDiagnosis;
-        document.getElementById('downloadReportBtn').onclick = downloadReport;
-        document.getElementById('newDiagnosisBtn').onclick = resetAll;
+        $('diagnoseBtn').onclick = startDiagnosis;
+        $('newDiagnosisBtn').onclick = resetAll;
+        $('downloadReportBtn').onclick = downloadReport;
     }
 
-    // --- Logic: Settings & Health ---
-    function saveApiUrl() {
-        const url = els.apiUrl.value.trim();
-        if (!url) return showToast('请输入有效的 URL', 'error');
-        localStorage.setItem('api_url', url);
-        showToast('API 地址已保存', 'success');
-        checkApiHealth();
-    }
-
-    async function checkApiHealth() {
-        const apiUrl = getApiUrl();
-        els.healthStatus.textContent = '连接中...';
-        els.healthIndicator.className = 'w-2.5 h-2.5 rounded-full bg-yellow-400 mr-2 animate-pulse';
-
+    // --- Core Logic ---
+    async function checkHealth() {
         try {
-            const res = await fetch(`${apiUrl}/api/health`);
+            await fetch(`${getApiUrl()}/health`);
+        } catch(e) {
+            console.warn('Health check failed', e);
+        }
+    }
+
+    async function fetchMetrics() {
+        els.metricsContent.innerHTML = '<div class="col-span-full text-center text-slate-500 py-8">加载中...</div>';
+        try {
+            const res = await fetch(`${getApiUrl()}/metrics`);
             if(!res.ok) throw new Error('Failed');
             const data = await res.json();
             
-            els.healthStatus.textContent = '系统在线';
-            els.healthStatus.classList.replace('text-slate-500', 'text-green-600');
-            els.healthIndicator.className = 'w-2.5 h-2.5 rounded-full bg-green-500 mr-2';
-            
-            // Update Model Status Details
-            els.modelStatus.classList.remove('hidden');
-            updateModelBadge('statusDR', data.models.dr_grading);
-            updateModelBadge('statusQwen', data.models.qwen_vl);
-            updateModelBadge('statusR1', data.models.r1_7b);
-            updateModelBadge('statusRAG', data.models.rag);
-
-        } catch (e) {
-            els.healthStatus.textContent = '连接失败';
-            els.healthStatus.classList.replace('text-green-600', 'text-red-500');
-            els.healthIndicator.className = 'w-2.5 h-2.5 rounded-full bg-red-500 mr-2';
-            els.modelStatus.classList.add('hidden');
+            // Render Metrics
+            const metricsHtml = Object.entries(data).map(([key, value]) => `
+                <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                    <div class="text-xs text-slate-400 uppercase tracking-wider mb-1">${key.replace(/_/g, ' ')}</div>
+                    <div class="text-xl font-mono font-bold text-blue-400">${formatMetric(value)}</div>
+                </div>
+            `).join('');
+            els.metricsContent.innerHTML = metricsHtml;
+        } catch(e) {
+            els.metricsContent.innerHTML = '<div class="col-span-full text-center text-red-400 py-8">无法获取系统指标</div>';
         }
     }
 
-    function updateModelBadge(id, active) {
-        const el = document.getElementById(id);
-        el.textContent = active ? '就绪' : '离线';
-        el.className = active ? 'text-green-600 font-bold' : 'text-red-400 font-bold';
+    function formatMetric(val) {
+        if(typeof val === 'number') return val.toFixed(1);
+        return val;
     }
 
     async function reloadKnowledgeBase() {
         try {
-            const res = await fetch(`${getApiUrl()}/api/knowledge/update`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify([])
-            });
-            if(res.ok) showToast('知识库重载成功', 'success');
-        } catch (e) {
-            showToast('知识库更新失败', 'error');
+            const res = await fetch(`${getApiUrl()}/reload-knowledge-base`, {method: 'POST'});
+            if(res.ok) showToast('知识库重载任务已启动', 'success');
+            else throw new Error('Failed');
+        } catch(e) {
+            showToast('请求失败', 'error');
         }
-    }
-
-    // --- Logic: File Upload ---
-    function handleDrop(e) {
-        e.preventDefault();
-        els.dropZone.classList.remove('drag-active');
-        if(e.dataTransfer.files.length) processFile(e.dataTransfer.files[0]);
     }
 
     function processFile(file) {
         if (!file || !file.type.startsWith('image/')) return showToast('请上传图片文件', 'error');
-        if (file.size > 10 * 1024 * 1024) return showToast('图片大小需小于 10MB', 'error');
+        if (file.size > 50 * 1024 * 1024) return showToast('图片过大 (>50MB)', 'error');
 
         currentFile = file;
         const reader = new FileReader();
         reader.onload = (e) => {
             els.previewImg.src = e.target.result;
-            els.imageInfo.textContent = `${file.name} (${(file.size/1024/1024).toFixed(2)} MB)`;
+            $('imageInfo').innerHTML = `<span>${file.name}</span><span>${(file.size/1024/1024).toFixed(2)} MB</span>`;
             
-            els.uploadPlaceholder.classList.add('hidden');
-            els.imagePreview.classList.remove('hidden');
-            els.diagnoseBtn.disabled = false;
-            els.dropZone.classList.add('border-blue-500', 'bg-blue-50');
+            $('uploadPlaceholder').classList.add('hidden');
+            $('imagePreview').classList.remove('hidden');
+            $('diagnoseBtn').disabled = false;
+            els.dropZone.classList.add('border-blue-500', 'bg-slate-800/80');
         };
         reader.readAsDataURL(file);
     }
@@ -549,165 +532,169 @@
     function resetUpload() {
         currentFile = null;
         els.imageInput.value = '';
-        els.uploadPlaceholder.classList.remove('hidden');
-        els.imagePreview.classList.add('hidden');
-        els.diagnoseBtn.disabled = true;
-        els.dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+        $('uploadPlaceholder').classList.remove('hidden');
+        $('imagePreview').classList.add('hidden');
+        $('diagnoseBtn').disabled = true;
+        els.dropZone.classList.remove('border-blue-500', 'bg-slate-800/80');
     }
 
-    // --- Logic: Diagnosis ---
     async function startDiagnosis() {
         if (!currentFile) return;
 
-        // UI Transition
-        els.diagnoseBtn.disabled = true;
+        // UI State
+        $('diagnoseBtn').disabled = true;
         els.loadingState.classList.remove('hidden');
-        els.uploadSection.classList.add('hidden'); // Hide upload to focus on loading
+        els.uploadSection.classList.add('hidden');
         
-        // Progress Animation
+        // Simulated Progress
         simulateProgress();
 
         try {
             const formData = new FormData();
             formData.append('file', currentFile);
-            formData.append('enable_rag', els.enableRag.checked);
-            formData.append('enable_cot', els.enableCot.checked);
+            formData.append('enable_rag', $('enableRag').checked);
+            formData.append('enable_cot', $('enableCot').checked);
 
-            const res = await fetch(`${getApiUrl()}/api/diagnose`, {
+            const res = await fetch(`${getApiUrl()}/diagnose`, {
                 method: 'POST',
                 body: formData
             });
 
-            if (!res.ok) throw new Error('API Error');
-            diagnosisData = await res.json();
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.detail || '诊断请求失败');
+            }
 
+            diagnosisData = await res.json();
             renderResults(diagnosisData);
-            
+
         } catch (e) {
             console.error(e);
-            showToast('诊断服务响应超时或错误', 'error');
-            els.uploadSection.classList.remove('hidden'); // Show upload again
-        } finally {
+            showToast(e.message, 'error');
+            // Reset UI on error
             els.loadingState.classList.add('hidden');
+            els.uploadSection.classList.remove('hidden');
+            $('diagnoseBtn').disabled = false;
         }
     }
 
     async function simulateProgress() {
         const steps = [
-            { t: 10, msg: '正在上传影像数据...' },
-            { t: 30, msg: '启动 Qwen-VL 进行视觉特征提取...' },
-            { t: 60, msg: '检索 RAG 知识库医学文献...' },
-            { t: 80, msg: 'DeepSeek-R1 进行思维链推理...' },
-            { t: 95, msg: '生成最终诊断报告...' }
+            { p: 10, t: '正在上传影像数据...' },
+            { p: 30, t: 'ResNet152 正在进行 DR 分级...' },
+            { p: 50, t: 'Qwen-VL 正在提取病灶特征...' },
+            { p: 70, t: 'RAG 检索医学知识库...' },
+            { p: 90, t: 'DeepSeek-R1 生成诊断报告...' }
         ];
         
         for(const step of steps) {
-            els.progressBar.style.width = step.t + '%';
-            els.progressSteps.textContent = step.msg;
+            if(diagnosisData) break; // Stop if done
+            els.progressBar.style.width = step.p + '%';
+            els.progressSteps.textContent = step.t;
             await new Promise(r => setTimeout(r, 800));
         }
     }
 
-    // --- Logic: Render Results ---
     function renderResults(data) {
+        els.loadingState.classList.add('hidden');
         els.resultsSection.classList.remove('hidden');
-        document.getElementById('reportTime').textContent = new Date().toLocaleString();
 
-        // 1. Cards
-        renderCard('drGrade', data.dr_grade, `(等级 ${data.dr_grade}) ${data.dr_grade_desc}`, data.dr_grade);
-        document.getElementById('confidence').textContent = `置信度: ${(data.confidence * 100).toFixed(1)}%`;
-        
-        document.getElementById('riskLevel').textContent = getRiskLevel(data.dr_grade);
-        document.getElementById('riskLevel').className = `text-3xl font-bold mb-1 ${getRiskColor(data.dr_grade)}`;
-        document.getElementById('riskDesc').textContent = getRiskDesc(data.dr_grade);
-        
-        document.getElementById('urgency').textContent = getUrgency(data.dr_grade);
-        document.getElementById('urgencyDesc').textContent = getUrgencyDesc(data.dr_grade);
+        // Header Info
+        $('traceId').textContent = data.trace_id;
+        $('processTime').textContent = data.processing_time.toFixed(2) + 's';
 
-        // 2. Detailed Text
-        document.getElementById('lesionDesc').textContent = data.lesion_description;
-        
-        const recList = document.getElementById('recommendations');
-        recList.innerHTML = data.recommendations.map(r => 
-            `<li class="flex items-start gap-2"><i class="fas fa-check-circle text-emerald-500 mt-1"></i><span>${r}</span></li>`
+        // 1. DR Grade
+        const gradeEl = $('drGrade');
+        gradeEl.textContent = data.dr_grade_desc;
+        gradeEl.className = `text-4xl font-bold mb-2 ${getGradeColor(data.dr_grade)}`;
+        $('confidence').textContent = `置信度: ${(data.confidence * 100).toFixed(1)}%`;
+
+        // 2. Risk Level
+        $('riskLevel').textContent = getRiskLevel(data.dr_grade);
+        $('riskLevel').className = `text-3xl font-bold mb-2 ${getRiskColor(data.dr_grade)}`;
+        $('riskDesc').textContent = getRiskDesc(data.dr_grade);
+
+        // 3. Lesion Description
+        $('lesionDesc').textContent = data.lesion_description;
+
+        // 4. Recommendations
+        const recs = data.structured_report.recommendations || [];
+        $('recommendations').innerHTML = recs.map(r => 
+            `<li class="flex items-start gap-3 bg-slate-800/50 p-3 rounded-lg border border-slate-700/50">
+                <i class="fas fa-check-circle text-emerald-500 mt-1"></i>
+                <span>${r}</span>
+            </li>`
         ).join('');
 
-        // 3. AI Reasoning sections
-        if(els.enableCot.checked && data.cot_reasoning) {
-            document.getElementById('cotSection').classList.remove('hidden');
-            document.getElementById('cotReasoning').textContent = data.cot_reasoning;
-        }
-        
-        if(els.enableRag.checked && data.retrieved_knowledge) {
-            document.getElementById('knowledgeSection').classList.remove('hidden');
-            const kDiv = document.getElementById('retrievedKnowledge');
-            kDiv.innerHTML = data.retrieved_knowledge.map(k => 
-                `<div class="p-3 bg-indigo-50 rounded-lg text-sm text-indigo-800 border border-indigo-100"><i class="fas fa-book mr-2"></i>${k}</div>`
-            ).join('');
+        // 5. CoT Reasoning
+        if (data.structured_report.cot_reasoning) {
+            $('cotSection').classList.remove('hidden');
+            $('cotReasoning').textContent = data.structured_report.cot_reasoning;
+        } else {
+            $('cotSection').classList.add('hidden');
         }
 
-        // Scroll to results
-        els.resultsSection.scrollIntoView({behavior: 'smooth'});
-    }
+        // 6. Traceability
+        if (data.structured_report.traceability) {
+            $('traceSection').classList.remove('hidden');
+            $('traceability').textContent = data.structured_report.traceability;
+        } else {
+            $('traceSection').classList.add('hidden');
+        }
 
-    function renderCard(id, grade, text, level) {
-        const el = document.getElementById(id);
-        el.textContent = text;
-        // Define styles based on severity 0-4
-        const colors = ['text-emerald-600', 'text-yellow-600', 'text-orange-500', 'text-red-500', 'text-red-700'];
-        el.className = `text-2xl font-bold mb-1 ${colors[level] || colors[0]}`;
+        // Scroll to top
+        window.scrollTo({top: 0, behavior: 'smooth'});
     }
-
-    // --- Helpers ---
-    function getRiskLevel(g) { return ['低风险', '轻微', '中度', '高风险', '极高危'][g] || '未知'; }
-    function getRiskColor(g) { return ['text-emerald-600', 'text-yellow-600', 'text-orange-500', 'text-red-600', 'text-red-800'][g]; }
-    function getRiskDesc(g) { return ['未发现明显病变', '轻度非增殖期', '中度非增殖期', '重度非增殖期', '增殖期视网膜病变'][g]; }
-    function getUrgency(g) { return ['常规随访', '定期观察', '建议就诊', '及时就医', '立即治疗'][g]; }
-    function getUrgencyDesc(g) { return ['12个月后复查', '6-12个月后复查', '3-6个月后复查', '1个月内复查', '需尽快进行激光或手术治疗'][g]; }
 
     function resetAll() {
-        resetUpload();
         diagnosisData = null;
+        resetUpload();
         els.resultsSection.classList.add('hidden');
         els.uploadSection.classList.remove('hidden');
         els.progressBar.style.width = '0%';
         window.scrollTo({top: 0, behavior: 'smooth'});
     }
 
-    // --- Utils ---
-    function getApiUrl() { return els.apiUrl.value.replace(/\/$/, ''); }
-    
-    function showToast(msg, type) {
-        const toast = document.createElement('div');
-        toast.className = `fixed top-5 right-5 px-6 py-3 rounded-lg text-white shadow-xl z-[60] fade-in-up font-medium ${type === 'error' ? 'bg-red-500' : 'bg-slate-800'}`;
-        toast.innerHTML = `<i class="fas ${type === 'error' ? 'fa-exclamation-circle' : 'fa-check-circle'} mr-2"></i>${msg}`;
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 3000);
-    }
-
-    async function toggleLogs() {
-        const sec = els.logsSection;
-        if (sec.classList.contains('hidden')) {
-            sec.classList.remove('hidden');
-            try {
-                const res = await fetch(`${getApiUrl()}/api/logs`);
-                const data = await res.json();
-                els.logsContainer.textContent = data.logs.join('\n');
-            } catch(e) { els.logsContainer.textContent = "无法获取日志..."; }
-        } else {
-            sec.classList.add('hidden');
-        }
-    }
-
     function downloadReport() {
         if (!diagnosisData) return;
-        const text = `=== 眼底诊断报告 ===\n生成时间: ${new Date().toLocaleString()}\n\nDR分级: ${diagnosisData.dr_grade}\n描述: ${diagnosisData.lesion_description}\n\n治疗建议:\n${diagnosisData.recommendations.join('\n')}`;
-        const blob = new Blob([text], {type: 'text/plain'});
+        const report = {
+            id: diagnosisData.trace_id,
+            time: diagnosisData.timestamp,
+            grade: diagnosisData.dr_grade_desc,
+            lesion: diagnosisData.lesion_description,
+            recommendations: diagnosisData.structured_report.recommendations,
+            reasoning: diagnosisData.structured_report.cot_reasoning
+        };
+        const blob = new Blob([JSON.stringify(report, null, 2)], {type: 'application/json'});
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = `Report_${Date.now()}.txt`;
+        a.href = url; a.download = `DR_Report_${diagnosisData.trace_id.slice(0,8)}.json`;
         a.click();
     }
+
+    // --- Helpers ---
+    function showToast(msg, type = 'info') {
+        const toast = document.createElement('div');
+        const colors = type === 'error' ? 'bg-red-500' : (type === 'success' ? 'bg-green-500' : 'bg-blue-600');
+        toast.className = `${colors} text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 fade-in-up min-w-[300px]`;
+        toast.innerHTML = `<i class="fas ${type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'}"></i> ${msg}`;
+        
+        const container = $('toastContainer');
+        container.appendChild(toast);
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+
+    function getGradeColor(g) {
+        return ['text-emerald-400', 'text-yellow-400', 'text-orange-400', 'text-red-400', 'text-red-600'][g] || 'text-white';
+    }
+    function getRiskColor(g) {
+        return ['text-emerald-400', 'text-yellow-400', 'text-orange-400', 'text-red-400', 'text-red-600'][g] || 'text-white';
+    }
+    function getRiskLevel(g) { return ['低风险', '轻微', '中度', '高风险', '极高危'][g] || '未知'; }
+    function getRiskDesc(g) { return ['未发现明显病变', '轻度非增殖期', '中度非增殖期', '重度非增殖期', '增殖期视网膜病变'][g]; }
 
     // Start
     init();
