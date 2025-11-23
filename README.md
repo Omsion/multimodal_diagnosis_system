@@ -80,7 +80,7 @@ pip install -r requirements.txt
 
 复制环境变量模板：
 ```bash
-cp .env.example .env
+cp .env
 ```
 
 编辑 `.env` 文件：

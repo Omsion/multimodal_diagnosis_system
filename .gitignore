@@ -1,9 +1,12 @@
-
-# Python
+# ================================
+# Python相关
+# ================================
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+
+# Distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -21,31 +24,106 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual Environment
-venv/
-env/
-ENV/
-.env
-.venv/
+# PyInstaller
+*.manifest
+*.spec
 
-# IDEs
-.idea/
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Translations
+*.mo
+*.pot
+
+# Django stuff:
+*.log
+local_settings.py
+
+# Flask stuff:
+instance/
+.webassets-cache
+
+# Scrapy stuff:
+.scrapy
+
+# Sphinx documentation
+docs/_build/
+
+# PyBuilder
+target/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# celery beat schedule file
+celerybeat-schedule
+
+# SageMath parsed files
+*.sage.py
+
+# ================================
+# 环境变量和密钥（重要！）
+# ================================
+# 真实的环境变量文件，包含API密钥，绝对不能上传！
+.env
+
+# 其他环境相关
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ================================
+# IDE和编辑器
+# ================================
 .vscode/
+.idea/
 *.swp
 *.swo
+*~
+.spyderproject
+.spyproject
+.ropeproject
 
-# Logs
+# ================================
+# 操作系统
+# ================================
+.DS_Store
+Thumbs.db
+
+# ================================
+# 项目特定（大文件）
+# ================================
+# 模型权重文件（太大，不上传）
+models/*.pth
+models/*.bin
+models/*.safetensors
+models/Qwen-VL/
+models/R1-7B*/
+
+# 向量数据库（可重新生成）
+data/vector_db/
+
+# 日志文件
 logs/
 *.log
 
-# Data and Models (Optional, depending on if you track them)
-data/
-models/
-# But usually we ignore large model weights
-*.pth
-*.bin
-*.safetensors
-*.onnx
-
-# Project specific
-.claude/
+# mypy
+.mypy_cache/
