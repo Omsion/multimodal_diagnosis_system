@@ -1,62 +1,66 @@
+# ⚠️ 文档已过时
 
-# 多环境微服务架构重构指南
+> [!WARNING]
+> **本文档描述的微服务架构方案并未实现，请勿参考！**
 
-为了支持在两个不同的Conda环境中运行不同的模型，我们已经将项目重构为微服务架构。
+本文档最初计划将项目重构为微服务架构，以支持在不同Conda环境中运行不同模型。但**实际项目采用了更实用的方案**：
 
-## 架构概览
+## 当前实际架构
 
-| 服务名称 | 端口 | 职责 | 推荐环境 |
-| :--- | :--- | :--- | :--- |
-| **API Gateway** | 8000 | 统一入口，协调请求，处理上传 | Base / DR环境 |
-| **DR Grading Service** | 8001 | 运行ResNet模型进行DR分级 | **DR环境 (Env A)** |
-| **Multimodal Service** | 8002 | 运行Qwen-VL和DeepSeek-R1 | **多模态环境 (Env B)** |
+项目采用**单体应用 + API模式**的架构：
 
-## 目录结构变更
+- **架构类型**：单体FastAPI应用
+- **部署方式**：单个服务，一个命令启动
+- **模型部署**：
+  - DR分级模型：本地ResNet152
+  - 视觉描述：API调用（Qwen-VL-Max）或本地模型
+  - 推理LLM：API调用（DeepSeek-Chat）或本地模型
 
-```
-multimodal_diagnosis_system/
-├── src/
-│   ├── api/                 # [修改] 现在作为网关，不直接加载模型
-│   │   └── main.py
-│   ├── services/            # [新增] 微服务目录
-│   │   ├── dr_grading/      # DR分级服务代码
-│   │   │   └── main.py
-│   │   └── multimodal/      # 多模态服务代码
-│   │       └── main.py
-│   └── ...
-├── scripts/                 # [新增] 启动脚本
-│   ├── start_dr_service.bat
-│   ├── start_multimodal_service.bat
-│   ├── start_gateway.bat
-│   └── start_all_services.bat
-└── ...
-```
+## 如何启动项目？
 
-## 🚀 启动步骤 (重要)
+请参考 **[README.md](README.md)** 获取准确的启动指南。
 
-在使用之前，您**必须**修改启动脚本中的环境名称。
+**简要步骤**：
 
-### 1. 配置 DR 环境脚本
-打开 `scripts/start_dr_service.bat`，找到以下行并修改为您运行ResNet的Conda环境名称：
-```bat
-REM Set your DR environment name here
-set DR_ENV_NAME=您的DR环境名称  <-- 修改这里
-```
+1. **配置环境**：
+   ```bash
+   conda activate your_environment
+   pip install -r requirements.txt
+   ```
 
-### 2. 配置 多模态 环境脚本
-打开 `scripts/start_multimodal_service.bat`，找到以下行并修改为您运行Qwen/DeepSeek的Conda环境名称：
-```bat
-REM Set your Multimodal environment name here
-set MULTIMODAL_ENV_NAME=您的多模态环境名称  <-- 修改这里
-```
+2. **配置 `.env` 文件**（从 `.env.example` 复制）
 
-### 3. 一键启动
-双击运行 `scripts/start_all_services.bat`。
-- 它会打开3个独立的命令行窗口。
-- 只要3个窗口都没有报错，系统就启动成功了。
-- 访问 `http://localhost:8000/docs` 查看统一的API文档。
+3. **初始化向量数据库**（首次运行）：
+   ```bash
+   python scripts/init_vector_db.py
+   ```
 
-## 验证
-- **DR服务健康检查**: `http://localhost:8001/health`
-- **多模态服务健康检查**: `http://localhost:8002/health`
-- **网关健康检查**: `http://localhost:8000/health` (会显示所有子服务的状态)
+4. **启动服务**：
+   ```bash
+   python run_service.py
+   ```
+
+5. **访问服务**：http://localhost:8000
+
+---
+
+## 为什么没有实现微服务架构？
+
+微服务架构在此场景下存在以下问题：
+
+1. **过度设计**：单用户诊断系统不需要微服务的复杂性
+2. **资源浪费**：多个服务进程会消耗更多内存
+3. **更好的方案存在**：API模式已经解决了"不同环境运行不同模型"的需求
+
+## API模式的优势
+
+通过配置文件即可切换本地/API模式，无需微服务架构：
+
+- ✅ **灵活性**：一键切换本地模型或API调用
+- ✅ **简单性**：单个服务，易于部署和维护
+- ✅ **资源效率**：仅在需要时加载模型
+- ✅ **成本可控**：硬件不足时使用API，硬件充足时本地运行
+
+---
+
+**📖 完整文档请查阅：[README.md](README.md)**

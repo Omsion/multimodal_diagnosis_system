@@ -12,8 +12,8 @@
 
 import os
 from typing import Dict, List, Optional, Any
-from pydantic import Field, validator
-from pydantic_settings import BaseSettings
+from pydantic import Field, validator, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from enum import Enum
 
 class LogLevel(str, Enum):
@@ -31,7 +31,8 @@ class ModelConfig(BaseSettings):
     batch_size: int = Field(1, description="批处理大小")
     max_memory_gb: Optional[float] = Field(None, description="最大内存使用量(GB)")
 
-    @validator('device')
+    @field_validator('device')
+    @classmethod
     def validate_device(cls, v):
         allowed_devices = ['auto', 'cpu', 'cuda']
         if v not in allowed_devices:
@@ -81,6 +82,34 @@ class Settings(BaseSettings):
     QWEN_MAX_NEW_TOKENS: int = Field(256, description="Qwen-VL最大生成长度")
     QWEN_TEMPERATURE: float = Field(0.7, description="Qwen-VL生成温度")
     QWEN_TOP_P: float = Field(0.9, description="Qwen-VL top-p采样参数")
+
+    # LLM推理模型配置
+    LLM_MAX_TOKENS: int = Field(1024, description="LLM最大生成token数")
+    LLM_TEMPERATURE: float = Field(0.3, description="LLM生成温度")
+    LLM_TOP_P: float = Field(0.8, description="LLM top-p采样参数")
+
+    # === RAG配置 ===
+    VECTOR_DB_PATH: str = Field("./data/vector_db", description="向量数据库存储路径")
+    KNOWLEDGE_BASE_PATH: str = Field("./data/knowledge_base", description="知识库文件路径")
+    EMBEDDING_MODEL: str = Field(
+        "sentence-transformers/all-MiniLM-L6-v2",
+        description="嵌入模型名称"
+    )
+    CHUNK_SIZE: int = Field(500, description="文档分块大小")
+    CHUNK_OVERLAP: int = Field(50, description="文档分块重叠大小")
+    TOP_K: int = Field(3, description="RAG检索返回的top-k文档数量")
+
+    # === API模型配置 ===
+    USE_API_MODELS: bool = Field(True, description="是否使用API模式")
+    DASHSCOPE_API_KEY: str = Field("", description="DashScope API密钥")
+    DEEPSEEK_API_KEY: str = Field("", description="DeepSeek API密钥")
+    QWEN_VL_MODEL_NAME: str = Field("qwen-vl-max", description="Qwen-VL API模型名称")
+    DEEPSEEK_MODEL_NAME: str = Field("deepseek-chat", description="DeepSeek API模型名称")
+
+    # === 缓存配置 ===
+    ENABLE_CACHE: bool = Field(True, description="启用缓存")
+    CACHE_TTL: int = Field(3600, description="缓存过期时间(秒)")
+    MAX_CACHE_SIZE: int = Field(1000, description="最大缓存条目数")
 
     # === 安全配置 ===
     MAX_UPLOAD_SIZE: int = Field(50 * 1024 * 1024, description="最大上传文件大小(字节)")
@@ -145,7 +174,8 @@ class Settings(BaseSettings):
         description="基于DR分级的治疗建议"
     )
 
-    @validator('RESNET_MODEL_PATH')
+    @field_validator('RESNET_MODEL_PATH')
+    @classmethod
     def validate_resnet_path(cls, v):
         """验证ResNet模型路径"""
         if not os.path.exists(v):
@@ -153,7 +183,8 @@ class Settings(BaseSettings):
             logging.warning(f"DR分级模型文件不存在: {v}")
         return v
 
-    @validator('QWEN_VL_MODEL_PATH')
+    @field_validator('QWEN_VL_MODEL_PATH')
+    @classmethod
     def validate_qwen_path(cls, v):
         """验证Qwen-VL模型路径"""
         if not os.path.exists(v):
@@ -161,7 +192,8 @@ class Settings(BaseSettings):
             logging.warning(f"Qwen-VL模型路径不存在: {v}")
         return v
 
-    @validator('R1_7B_MODEL_PATH')
+    @field_validator('R1_7B_MODEL_PATH')
+    @classmethod
     def validate_r1_7b_path(cls, v):
         """验证R1-7B模型路径"""
         if not os.path.exists(v):
@@ -169,13 +201,15 @@ class Settings(BaseSettings):
             logging.warning(f"R1-7B模型路径不存在: {v}")
         return v
 
-    @validator('VECTOR_DB_PATH')
+    @field_validator('VECTOR_DB_PATH')
+    @classmethod
     def create_vector_db_dir(cls, v):
         """确保向量数据库目录存在"""
         os.makedirs(v, exist_ok=True)
         return v
 
-    @validator('LOG_LEVEL')
+    @field_validator('LOG_LEVEL')
+    @classmethod
     def validate_log_level(cls, v):
         """验证日志级别"""
         if isinstance(v, str):
@@ -249,15 +283,14 @@ class Settings(BaseSettings):
             }
         }
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = True
-        # 允许字段别名
-        allow_population_by_field_name = True
-
-        # 环境变量前缀
-        env_prefix = "DR_SYSTEM_"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+        # Pydantic v2 配置
+        populate_by_name=True,
+        env_prefix="DR_SYSTEM_"
+    )
 
 # 创建全局配置实例
 settings = Settings()
