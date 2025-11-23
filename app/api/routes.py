@@ -2,6 +2,7 @@
 import io
 import uuid
 import logging
+import os
 from datetime import datetime
 from typing import Optional
 
@@ -9,6 +10,7 @@ from fastapi import APIRouter, File, UploadFile, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from PIL import Image
 import psutil
+import GPUtil
 
 from app.api.schemas import DiagnosisRequest, DiagnosisResponse, HealthCheck, ErrorResponse
 from app.services.diagnosis import diagnosis_service
@@ -110,3 +112,88 @@ async def health_check():
             "rag_chain": diagnosis_service.rag_chain is not None
         }
     )
+
+@router.get("/metrics", summary="System Metrics", description="Get real-time system performance metrics")
+async def get_metrics():
+    """Get system metrics including CPU, memory, GPU usage"""
+    try:
+        # CPU and Memory
+        cpu_percent = psutil.cpu_percent(interval=0.1)
+        memory = psutil.virtual_memory()
+        
+        # GPU (if available)
+        gpu_info = {"available": False}
+        try:
+            gpus = GPUtil.getGPUs()
+            if gpus:
+                gpu = gpus[0]  # Use first GPU
+                gpu_info = {
+                    "available": True,
+                    "load": f"{gpu.load * 100:.1f}%",
+                    "memory_used": f"{gpu.memoryUsed}MB",
+                    "memory_total": f"{gpu.memoryTotal}MB",
+                    "temperature": f"{gpu.temperature}°C"
+                }
+        except:
+            pass
+        
+        # Disk
+        disk = psutil.disk_usage('/')
+        
+        return {
+            "cpu_usage": f"{cpu_percent}%",
+            "memory_used": f"{memory.percent}%",
+            "memory_available": f"{memory.available / (1024**3):.1f}GB",
+            "disk_usage": f"{disk.percent}%",
+            "gpu_load": gpu_info.get("load", "N/A") if gpu_info["available"] else "N/A",
+            "gpu_memory": f"{gpu_info.get('memory_used', 'N/A')}/{gpu_info.get('memory_total', 'N/A')}" if gpu_info["available"] else "N/A",
+            "uptime": "Online",
+            "models_loaded": sum([
+                diagnosis_service.dr_grader is not None,
+                diagnosis_service.lesion_describer is not None,
+                diagnosis_service.rag_chain is not None
+            ])
+        }
+    except Exception as e:
+        logger.error(f"Failed to get metrics: {e}")
+        raise HTTPException(status_code=500, detail=f"Metrics error: {str(e)}")
+
+@router.post("/reload-knowledge-base", summary="Reload Knowledge Base", description="Reload the RAG knowledge base from disk")
+async def reload_knowledge_base():
+    """Reload the RAG vector database from knowledge base files"""
+    try:
+        logger.info("Starting knowledge base reload...")
+        
+        # Check if vector DB exists
+        if not os.path.exists(settings.VECTOR_DB_PATH):
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "status": "error",
+                    "message": "向量数据库不存在，请先运行 init_vector_db.py 初始化"
+                }
+            )
+        
+        # Reinitialize the diagnosis service (which will reload the RAG chain)
+        try:
+            diagnosis_service.initialize()
+            logger.info("Knowledge base reloaded successfully")
+            
+            return {
+                "status": "success",
+                "message": "知识库重新加载成功",
+                "timestamp": datetime.now().isoformat()
+            }
+        except Exception as e:
+            logger.error(f"Failed to reload knowledge base: {e}")
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "status": "error",
+                    "message": f"重新加载失败: {str(e)}"
+                }
+            )
+            
+    except Exception as e:
+        logger.error(f"Knowledge base reload error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
