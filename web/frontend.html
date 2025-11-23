@@ -117,8 +117,8 @@
       <div>
         <h1 class="text-white text-lg font-bold tracking-tight">RetinaAI <span class="text-blue-400 font-light">Diagnosis</span></h1>
         <div class="flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-            <p class="text-slate-400 text-xs font-mono">System Online</p>
+            <span id="statusIndicator" class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></span>
+            <p id="statusText" class="text-yellow-400 text-xs font-mono">Connecting...</p>
         </div>
       </div>
     </div>
@@ -427,6 +427,8 @@
     const DEFAULT_API_URL = 'http://localhost:8000';
     let currentFile = null;
     let diagnosisData = null;
+    let metricsRefreshInterval = null; // Global timer for metrics auto-refresh
+    let isMetricsModalOpen = false;    // Track modal open state
 
     // --- DOM Elements ---
     const $ = (id) => document.getElementById(id);
@@ -449,6 +451,33 @@
     function init() {
         els.apiUrl.value = localStorage.getItem('api_url') || DEFAULT_API_URL;
         setupEventListeners();
+        
+        // Initial system status check
+        updateSystemStatus('checking');
+        checkHealth();
+        
+        // Periodic health check every 10 seconds
+        setInterval(checkHealth, 10000);
+        
+        // Pause metrics refresh when page is hidden, resume when visible
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && metricsRefreshInterval) {
+                console.log('[Metrics] Page hidden, pausing refresh');
+                clearInterval(metricsRefreshInterval);
+                metricsRefreshInterval = null;
+            } else if (!document.hidden && isMetricsModalOpen) {
+                console.log('[Metrics] Page visible, resuming refresh');
+                if (!metricsRefreshInterval) {
+                    fetchMetrics();
+                    metricsRefreshInterval = setInterval(() => {
+                        if (isMetricsModalOpen && !els.metricsModal.classList.contains('hidden')) {
+                            fetchMetrics();
+                        }
+                    }, 2000);
+                }
+            }
+        });
+        
         // Initial health check
         checkHealth();
     }
@@ -463,25 +492,44 @@
         $('openSettingsBtn').onclick = () => els.settingsModal.classList.remove('hidden');
         $('closeSettingsBtn').onclick = () => els.settingsModal.classList.add('hidden');
         $('closeSettingsBackdrop').onclick = () => els.settingsModal.classList.add('hidden');
-        
-        let metricsRefreshInterval = null;
-        
+
         $('metricsBtn').onclick = () => {
+            // Clear any existing interval first to prevent timer leaks
+            if (metricsRefreshInterval) {
+                clearInterval(metricsRefreshInterval);
+                metricsRefreshInterval = null;
+            }
+
+            isMetricsModalOpen = true;
             els.metricsModal.classList.remove('hidden');
             fetchMetrics();
-            // Start auto-refresh every 2 seconds
-            metricsRefreshInterval = setInterval(fetchMetrics, 2000);
+            
+            // Start auto-refresh every 2 seconds with enhanced protection
+            metricsRefreshInterval = setInterval(() => {
+                // Double check modal is still open before fetching
+                if (isMetricsModalOpen && !els.metricsModal.classList.contains('hidden')) {
+                    fetchMetrics();
+                } else {
+                    // Safety: clear interval if modal somehow closed
+                    if (metricsRefreshInterval) {
+                        clearInterval(metricsRefreshInterval);
+                        metricsRefreshInterval = null;
+                    }
+                }
+            }, 2000);
         };
-        
+
         const closeMetricsModal = () => {
+            isMetricsModalOpen = false;
             els.metricsModal.classList.add('hidden');
+            
             // Stop auto-refresh when modal is closed
             if (metricsRefreshInterval) {
                 clearInterval(metricsRefreshInterval);
                 metricsRefreshInterval = null;
             }
         };
-        
+
         $('closeMetricsBtn').onclick = closeMetricsModal;
         $('closeMetricsBackdrop').onclick = closeMetricsModal;
 
@@ -525,9 +573,45 @@
     // --- Core Logic ---
     async function checkHealth() {
         try {
-            await fetch(`${getApiUrl()}/health`);
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000); // 3秒超时
+            
+            const res = await fetch(`${getApiUrl()}/health`, {
+                method: 'GET',
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (res.ok) {
+                updateSystemStatus('online');
+            } else {
+                updateSystemStatus('offline');
+            }
         } catch(e) {
             console.warn('Health check failed', e);
+            updateSystemStatus('offline');
+        }
+    }
+
+    function updateSystemStatus(status) {
+        const indicatorEl = document.getElementById('statusIndicator');
+        const textEl = document.getElementById('statusText');
+        
+        if (!indicatorEl || !textEl) return; // Safety check
+        
+        if (status === 'online') {
+            indicatorEl.className = 'w-2 h-2 rounded-full bg-green-500 animate-pulse';
+            textEl.textContent = 'System Online';
+            textEl.className = 'text-slate-400 text-xs font-mono';
+        } else if (status === 'offline') {
+            indicatorEl.className = 'w-2 h-2 rounded-full bg-red-500';
+            textEl.textContent = 'System Offline';
+            textEl.className = 'text-red-400 text-xs font-mono';
+        } else { // 'checking'
+            indicatorEl.className = 'w-2 h-2 rounded-full bg-yellow-500 animate-pulse';
+            textEl.textContent = 'Connecting...';
+            textEl.className = 'text-yellow-400 text-xs font-mono';
         }
     }
 
@@ -536,10 +620,10 @@
             const res = await fetch(`${getApiUrl()}/metrics`);
             if(!res.ok) throw new Error('Failed');
             const data = await res.json();
-            
+
             // Check if metrics already rendered
             const existingMetrics = els.metricsContent.querySelectorAll('[data-metric-key]');
-            
+
             if (existingMetrics.length === 0) {
                 // First time rendering - create full HTML structure
                 const metricsHtml = Object.entries(data).map(([key, value]) => {
@@ -566,7 +650,9 @@
                 });
             }
         } catch(e) {
-            els.metricsContent.innerHTML = '<div class="col-span-full text-center text-red-400 py-8">无法获取系统指标</div>';
+            console.warn('Metrics fetch failed:', e);
+            // Don't update UI on temporary failures to avoid flashing
+            // The interval will retry automatically
         }
     }
 
