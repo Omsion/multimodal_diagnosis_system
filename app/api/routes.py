@@ -146,7 +146,7 @@ async def get_metrics():
             "memory_available": f"{memory.available / (1024**3):.1f}GB",
             "disk_usage": f"{disk.percent}%",
             "gpu_load": gpu_info.get("load", "N/A") if gpu_info["available"] else "N/A",
-            "gpu_memory": f"{gpu_info.get('memory_used', 'N/A')}/{gpu_info.get('memory_total', 'N/A')}" if gpu_info["available"] else "N/A",
+            "gpu_memory": f"{(gpu_info.get('memory_used', 0) / gpu_info.get('memory_total', 1) * 100):.1f}%" if gpu_info["available"] else "N/A",
             "uptime": "Online",
             "models_loaded": sum([
                 diagnosis_service.dr_grader is not None,

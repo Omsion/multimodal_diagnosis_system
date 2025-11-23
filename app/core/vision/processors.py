@@ -86,12 +86,54 @@ class DRGradingModule:
     def _get_transform(self):
         """
         获取图像预处理变换
+        
+        注意: 必须与训练时的预处理流程完全一致:
+        - 图像尺寸: 384x384 (训练时配置)
+        - CLAHE增强: clip_limit=2.0, tile_grid_size=(8,8)
+        - 标准化: ImageNet均值和标准差
 
         Returns:
             transforms.Compose: 图像预处理管道
         """
+        import cv2
+        import numpy as np
+        
+        class CLAHETransform:
+            """自定义CLAHE变换以匹配训练时的预处理"""
+            def __init__(self, clip_limit=2.0, tile_grid_size=(8, 8)):
+                self.clahe = cv2.createCLAHE(
+                    clipLimit=clip_limit, 
+                    tileGridSize=tile_grid_size
+                )
+            
+            def __call__(self, img):
+                """
+                对PIL图像应用CLAHE
+                
+                Args:
+                    img: PIL Image (RGB)
+                    
+                Returns:
+                    PIL Image: CLAHE增强后的图像
+                """
+                # PIL转numpy
+                img_array = np.array(img)
+                
+                # 分离通道并应用CLAHE
+                channels = []
+                for i in range(3):
+                    channels.append(self.clahe.apply(img_array[:, :, i]))
+                
+                # 合并通道
+                img_clahe = np.stack(channels, axis=2)
+                
+                # 转回PIL
+                from PIL import Image
+                return Image.fromarray(img_clahe)
+        
         return transforms.Compose([
-            transforms.Resize((224, 224)),
+            transforms.Resize((384, 384)),  # 匹配训练时的IMG_SIZE=384
+            CLAHETransform(clip_limit=2.0, tile_grid_size=(8, 8)),  # 匹配训练时的CLAHE配置
             transforms.ToTensor(),
             transforms.Normalize(
                 mean=[0.485, 0.456, 0.406],
