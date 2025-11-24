@@ -706,8 +706,13 @@
         els.loadingState.classList.remove('hidden');
         els.uploadSection.classList.add('hidden');
         
-        // Simulated Progress
-        simulateProgress();
+        // Reset progress
+        els.progressBar.style.width = '0%';
+        els.progressSteps.textContent = '正在连接服务器...';
+        
+        // Variables to accumulate streaming content
+        let fullReasoning = '';
+        let fullAnswer = '';
 
         try {
             const formData = new FormData();
@@ -715,45 +720,110 @@
             formData.append('enable_rag', $('enableRag').checked);
             formData.append('enable_cot', $('enableCot').checked);
 
-            const res = await fetch(`${getApiUrl()}/diagnose`, {
+            // Start streaming fetch
+            const response = await fetch(`${getApiUrl()}/diagnose-stream`, {
                 method: 'POST',
                 body: formData
             });
 
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.detail || '诊断请求失败');
+            if (!response.ok) {
+                throw new Error('诊断请求失败');
             }
 
-            diagnosisData = await res.json();
-            renderResults(diagnosisData);
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            // Process SSE stream
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n\n');
+                buffer = lines.pop() || ''; // Keep incomplete chunk in buffer
+
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+
+                    // Parse SSE event format
+                    const eventMatch = line.match(/event:\s*(\w+)/);
+                    const dataMatch = line.match(/data:\s*(.+)/);
+
+                    if (eventMatch && dataMatch) {
+                        const eventType = eventMatch[1];
+                        const eventData = JSON.parse(dataMatch[1]);
+                        handleStreamEvent(eventType, eventData);
+                    }
+                }
+            }
 
         } catch (e) {
             console.error(e);
             showToast(e.message, 'error');
-            // Reset UI on error
             els.loadingState.classList.add('hidden');
             els.uploadSection.classList.remove('hidden');
             $('diagnoseBtn').disabled = false;
         }
-    }
 
-    async function simulateProgress() {
-        const steps = [
-            { p: 10, t: '正在上传影像数据...' },
-            { p: 30, t: 'ResNet152 正在进行 DR 分级...' },
-            { p: 50, t: 'Qwen-VL 正在提取病灶特征...' },
-            { p: 70, t: 'RAG 检索医学知识库...' },
-            { p: 90, t: 'DeepSeek-R1 生成诊断报告...' }
-        ];
-        
-        for(const step of steps) {
-            if(diagnosisData) break; // Stop if done
-            els.progressBar.style.width = step.p + '%';
-            els.progressSteps.textContent = step.t;
-            await new Promise(r => setTimeout(r, 800));
+        function handleStreamEvent(eventType, data) {
+            switch (eventType) {
+                case 'progress':
+                    els.progressSteps.textContent = data.message || '';
+                    const progressMap = {
+                        'dr_grading': 20,
+                        'lesion_analysis': 40,
+                        'thinking': 50,
+                        'answering': 70,
+                        'rag_reasoning': 85
+                    };
+                    els.progressBar.style.width = (progressMap[data.stage] || 0) + '%';
+                    break;
+
+                case 'dr_grade':
+                    if (!diagnosisData) diagnosisData = {};
+                    diagnosisData.dr_grade = data.grade;
+                    diagnosisData.confidence = data.confidence;
+                    diagnosisData.dr_grade_desc = data.description;
+                    break;
+
+                case 'lesion_reasoning':
+                    fullReasoning += data.content;
+                    console.log('[Reasoning]', data.content);
+                    break;
+
+                case 'lesion_answer':
+                    fullAnswer += data.content;
+                    break;
+
+                case 'rag_result':
+                    if (!diagnosisData) diagnosisData = {};
+                    diagnosisData.structured_report = data;
+                    break;
+
+                case 'complete':
+                    els.progressBar.style.width = '100%';
+                    if (!diagnosisData) diagnosisData = {};
+                    diagnosisData.trace_id = data.trace_id;
+                    diagnosisData.processing_time = data.processing_time;
+                    diagnosisData.lesion_description = fullAnswer || '无法生成描述';
+                    diagnosisData.timestamp = new Date().toISOString();
+                    renderResults(diagnosisData);
+                    fullReasoning = '';
+                    fullAnswer = '';
+                    break;
+
+                case 'error':
+                    showToast(data.message || '处理出错', 'error');
+                    els.loadingState.classList.add('hidden');
+                    els.uploadSection.classList.remove('hidden');
+                    $('diagnoseBtn').disabled = false;
+                    diagnosisData = null;
+                    break;
+            }
         }
     }
+
 
     function renderResults(data) {
         els.loadingState.classList.add('hidden');
@@ -848,113 +918,6 @@
             toast.style.opacity = '0';
             setTimeout(() => toast.remove(), 300);
         }, 3000);
-    }
-
-    function getGradeColor(g) {
-        return ['text-emerald-400', 'text-yellow-400', 'text-orange-400', 'text-red-400', 'text-red-600'][g] || 'text-white';
-    }
-    function getRiskColor(g) {
-    }
-
-    async function reloadKnowledgeBase() {
-        try {
-            const res = await fetch(`${getApiUrl()}/reload-knowledge-base`, {method: 'POST'});
-            if(res.ok) showToast('知识库重载任务已启动', 'success');
-            else throw new Error('Failed');
-        } catch(e) {
-            showToast('请求失败', 'error');
-        }
-    }
-
-    function processFile(file) {
-        if (!file || !file.type.startsWith('image/')) return showToast('请上传图片文件', 'error');
-        if (file.size > 50 * 1024 * 1024) return showToast('图片过大 (>50MB)', 'error');
-
-        currentFile = file;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            els.previewImg.src = e.target.result;
-            $('imageInfo').innerHTML = `<span>${file.name}</span><span>${(file.size/1024/1024).toFixed(2)} MB</span>`;
-            
-            $('uploadPlaceholder').classList.add('hidden');
-            $('imagePreview').classList.remove('hidden');
-            $('diagnoseBtn').disabled = false;
-            els.dropZone.classList.add('border-blue-500', 'bg-slate-800/80');
-        };
-        reader.readAsDataURL(file);
-    }
-
-    function resetUpload() {
-        currentFile = null;
-        els.imageInput.value = '';
-        $('uploadPlaceholder').classList.remove('hidden');
-        $('imagePreview').classList.add('hidden');
-        $('diagnoseBtn').disabled = true;
-        els.dropZone.classList.remove('border-blue-500', 'bg-slate-800/80');
-    }
-
-    async function startDiagnosis() {
-        if (!currentFile) return;
-
-        // UI State
-        $('diagnoseBtn').disabled = true;
-        els.loadingState.classList.remove('hidden');
-        els.uploadSection.classList.add('hidden');
-        
-        // Simulated Progress
-        simulateProgress();
-
-        try {
-            const formData = new FormData();
-            formData.append('file', currentFile);
-            formData.append('enable_rag', $('enableRag').checked);
-            formData.append('enable_cot', $('enableCot').checked);
-
-            const res = await fetch(`${getApiUrl()}/diagnose`, {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.detail || '诊断请求失败');
-            }
-
-            diagnosisData = await res.json();
-            renderResults(diagnosisData);
-
-        } catch (e) {
-            console.error(e);
-            showToast(e.message, 'error');
-            // Reset UI on error
-            els.loadingState.classList.add('hidden');
-            els.uploadSection.classList.remove('hidden');
-            $('diagnoseBtn').disabled = false;
-        }
-    }
-
-    async function simulateProgress() {
-        const steps = [
-            { p: 10, t: '正在上传影像数据...' },
-            { p: 30, t: 'ResNet152 正在进行 DR 分级...' },
-            { p: 50, t: 'Qwen-VL 正在提取病灶特征...' },
-            { p: 70, t: 'RAG 检索医学知识库...' },
-            { p: 90, t: 'DeepSeek-R1 生成诊断报告...' }
-        ];
-        
-        for(const step of steps) {
-            if(diagnosisData) break; // Stop if done
-            els.progressBar.style.width = step.p + '%';
-            els.progressSteps.textContent = step.t;
-            await new Promise(r => setTimeout(r, 800));
-        }
-    }
-
-    function renderResults(data) {
-        els.loadingState.classList.add('hidden');
-        els.resultsSection.classList.remove('hidden');
-
-        // Header Info
         $('traceId').textContent = data.trace_id;
         $('processTime').textContent = data.processing_time.toFixed(2) + 's';
 

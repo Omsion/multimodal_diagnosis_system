@@ -87,6 +87,98 @@ class QwenVLAPIClient:
             logger.error(f"Qwen-VL API处理异常: {e}")
             return f"处理异常: {str(e)}"
 
+    def generate_description_stream(
+        self, 
+        image: Image.Image, 
+        dr_grade_desc: str,
+        enable_thinking: bool = True,
+        thinking_budget: int = 81920
+    ):
+        """
+        流式生成眼底图像的病灶描述
+        
+        Args:
+            image (Image.Image): 输入的眼底图像
+            dr_grade_desc (str): DR分级描述
+            enable_thinking (bool): 是否启用思考过程输出
+            thinking_budget (int): 最大推理过程 Token 数
+            
+        Yields:
+            Dict[str, str]: 包含 type ('reasoning' 或 'answer') 和 content 的字典
+        """
+        try:
+            from openai import OpenAI
+        except ImportError:
+            logger.error("未安装openai库，请运行 pip install openai")
+            yield {"type": "error", "content": "系统错误：缺少openai依赖"}
+            return
+
+        if not self.api_key:
+            yield {"type": "error", "content": "配置错误：缺少DASHSCOPE_API_KEY"}
+            return
+
+        try:
+            # 将图像转换为base64
+            buffered = BytesIO()
+            image.save(buffered, format="PNG")
+            img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
+            img_data = f"data:image/png;base64,{img_str}"
+            
+            # 构建Prompt
+            prompt = self._build_medical_prompt(dr_grade_desc)
+            
+            client = OpenAI(
+                api_key=self.api_key,
+                base_url=self.base_url,
+            )
+
+            # 流式调用配置
+            extra_body = {}
+            if enable_thinking:
+                extra_body['enable_thinking'] = True
+                extra_body['thinking_budget'] = thinking_budget
+
+            completion = client.chat.completions.create(
+                model=self.model_name,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "image_url", "image_url": {"url": img_data}},
+                            {"type": "text", "text": prompt},
+                        ],
+                    }
+                ],
+                stream=True,
+                extra_body=extra_body
+            )
+            
+            # 处理流式响应
+            for chunk in completion:
+                # 如果chunk.choices为空，跳过（可能是usage信息）
+                if not chunk.choices:
+                    continue
+                
+                delta = chunk.choices[0].delta
+                
+                # 处理思考过程
+                if hasattr(delta, 'reasoning_content') and delta.reasoning_content is not None:
+                    yield {
+                        "type": "reasoning",
+                        "content": delta.reasoning_content
+                    }
+                # 处理回复内容
+                elif hasattr(delta, 'content') and delta.content:
+                    yield {
+                        "type": "answer",
+                        "content": delta.content
+                    }
+                    
+        except Exception as e:
+            logger.error(f"Qwen-VL API流式处理异常: {e}")
+            yield {"type": "error", "content": f"处理异常: {str(e)}"}
+
+
     def _build_medical_prompt(self, dr_grade_desc: str) -> str:
         """构建专业的医学提示词，包含few-shot示例"""
         

@@ -8,7 +8,7 @@ from typing import Optional
 import asyncio
 
 from fastapi import APIRouter, File, UploadFile, HTTPException, Depends
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from PIL import Image
 import psutil
 import GPUtil
@@ -116,6 +116,167 @@ async def diagnose(
     except Exception as e:
         logger.error(f"[{trace_id}] Diagnosis failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/diagnose-stream", summary="Streaming DR Diagnosis")
+async def diagnose_stream(
+    file: UploadFile = Depends(validate_image),
+    request: Optional[DiagnosisRequest] = None,
+):
+    """
+    流式诊断端点，使用 Server-Sent Events (SSE) 实时返回诊断进度
+    """
+    trace_id = str(uuid.uuid4())
+    request_config = request or DiagnosisRequest()
+    start_time = datetime.now()
+    
+    logger.info(f"[{trace_id}] Received streaming diagnosis request: {file.filename}")
+
+    # Read file content
+    file_content = await file.read()
+    
+    # Validate image
+    try:
+        image = Image.open(io.BytesIO(file_content)).convert("RGB")
+        if image.size[0] < 224 or image.size[1] < 224:
+            raise HTTPException(status_code=400, detail="Image size too small")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid image: {e}")
+
+    async def event_generator():
+        """生成 SSE 事件流"""
+        import json
+        
+        try:
+            loop = asyncio.get_event_loop()
+
+            # Step 1: DR Grading
+            yield f"event: progress\ndata: {json.dumps({'stage': 'dr_grading', 'message': '正在进行 DR 分级...'}, ensure_ascii=False)}\n\n"
+            
+            t1 = datetime.now()
+            dr_grade, confidence, dr_grade_desc = await loop.run_in_executor(
+                None, diagnosis_service.predict_dr, image
+            )
+            t2 = datetime.now()
+            logger.info(f"[{trace_id}] DR Grading complete: {dr_grade_desc} (Time: {(t2-t1).total_seconds():.2f}s)")
+            
+            # 发送DR分级结果
+            yield f"event: dr_grade\ndata: {json.dumps({'grade': dr_grade, 'confidence': confidence, 'description': dr_grade_desc}, ensure_ascii=False)}\n\n"
+
+            # Step 2: Lesion Description (Streaming)
+            yield f"event: progress\ndata: {json.dumps({'stage': 'lesion_analysis', 'message': 'Qwen-VL 正在分析病灶特征...'}, ensure_ascii=False)}\n\n"
+            
+            try:
+                t3 = datetime.now()
+                
+                # 检查是否使用API模式
+                if settings.USE_API_MODELS and hasattr(diagnosis_service.lesion_describer, 'generate_description_stream'):
+                    # 使用流式API
+                    reasoning_complete = False
+                    full_reasoning = ""
+                    full_answer = ""
+                    
+                    # 在线程池中执行流式生成器
+                    def stream_lesion():
+                        for chunk in diagnosis_service.lesion_describer.generate_description_stream(
+                            image, dr_grade_desc, enable_thinking=True, thinking_budget=81920
+                        ):
+                            return chunk
+                    
+                    # 直接调用生成器（因为它已经是同步的）
+                    for chunk in diagnosis_service.lesion_describer.generate_description_stream(
+                        image, dr_grade_desc, enable_thinking=True, thinking_budget=81920
+                    ):
+                        chunk_type = chunk.get("type")
+                        chunk_content = chunk.get("content", "")
+                        
+                        if chunk_type == "reasoning":
+                            # 第一个reasoning chunk时发送stage切换事件
+                            if not reasoning_complete and not full_reasoning:
+                                yield f"event: progress\ndata: {json.dumps({'stage': 'thinking', 'message': 'AI 正在思考...'}, ensure_ascii=False)}\n\n"
+                            
+                            full_reasoning += chunk_content
+                            yield f"event: lesion_reasoning\ndata: {json.dumps({'content': chunk_content}, ensure_ascii=False)}\n\n"
+                            
+                        elif chunk_type == "answer":
+                            # 第一个answer chunk时标记reasoning完成
+                            if not reasoning_complete:
+                                reasoning_complete = True
+                                yield f"event: progress\ndata: {json.dumps({'stage': 'answering', 'message': '生成病灶描述...'}, ensure_ascii=False)}\n\n"
+                            
+                            full_answer += chunk_content
+                            yield f"event: lesion_answer\ndata: {json.dumps({'content': chunk_content}, ensure_ascii=False)}\n\n"
+                            
+                        elif chunk_type == "error":
+                            yield f"event: error\ndata: {json.dumps({'message': chunk_content}, ensure_ascii=False)}\n\n"
+                            full_answer = chunk_content
+                            break
+                    
+                    lesion_description = full_answer if full_answer else "无法生成描述"
+                else:
+                    # 使用非流式API（本地模型或旧版API）
+                    lesion_description = await loop.run_in_executor(
+                        None, diagnosis_service.analyze_lesion, image, dr_grade_desc
+                    )
+                    yield f"event: lesion_answer\ndata: {json.dumps({'content': lesion_description}, ensure_ascii=False)}\n\n"
+                
+                t4 = datetime.now()
+                logger.info(f"[{trace_id}] Lesion description complete (Time: {(t4-t3).total_seconds():.2f}s)")
+                
+            except Exception as e:
+                logger.error(f"[{trace_id}] Lesion analysis failed: {e}")
+                lesion_description = f"Could not generate description. Diagnosed as {dr_grade_desc}."
+                yield f"event: error\ndata: {json.dumps({'message': str(e)}, ensure_ascii=False)}\n\n"
+
+            # Step 3: RAG Reasoning
+            structured_report = {}
+            if request_config.enable_rag:
+                yield f"event: progress\ndata: {json.dumps({'stage': 'rag_reasoning', 'message': 'DeepSeek-R1 生成诊断报告...'}, ensure_ascii=False)}\n\n"
+                
+                try:
+                    t5 = datetime.now()
+                    structured_report = await loop.run_in_executor(
+                        None, diagnosis_service.rag_reasoning, dr_grade_desc, lesion_description
+                    )
+                    t6 = datetime.now()
+                    logger.info(f"[{trace_id}] RAG reasoning complete (Time: {(t6-t5).total_seconds():.2f}s)")
+                    
+                    yield f"event: rag_result\ndata: {json.dumps(structured_report, ensure_ascii=False)}\n\n"
+                    
+                except Exception as e:
+                    logger.error(f"[{trace_id}] RAG failed: {e}")
+                    structured_report = {
+                        "cot_reasoning": "RAG service temporarily unavailable",
+                        "recommendations": ["Consult a doctor"],
+                        "traceability": "System degraded"
+                    }
+                    yield f"event: rag_result\ndata: {json.dumps(structured_report, ensure_ascii=False)}\n\n"
+            else:
+                structured_report = {
+                    "cot_reasoning": f"Based on AI visual analysis, diagnosed as {dr_grade_desc}.",
+                    "recommendations": ["Regular checkup"],
+                    "traceability": "Visual model output"
+                }
+                yield f"event: rag_result\ndata: {json.dumps(structured_report, ensure_ascii=False)}\n\n"
+
+            # Final completion event
+            processing_time = (datetime.now() - start_time).total_seconds()
+            logger.info(f"[{trace_id}] Total streaming processing time: {processing_time:.2f}s")
+            
+            yield f"event: complete\ndata: {json.dumps({'trace_id': trace_id, 'processing_time': processing_time}, ensure_ascii=False)}\n\n"
+            
+        except Exception as e:
+            logger.error(f"[{trace_id}] Streaming diagnosis failed: {e}")
+            yield f"event: error\ndata: {json.dumps({'message': str(e)}, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # Disable nginx buffering
+        }
+    )
+
 
 @router.get("/health", response_model=HealthCheck)
 async def health_check():
