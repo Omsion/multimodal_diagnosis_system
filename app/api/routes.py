@@ -49,14 +49,24 @@ async def diagnose(
         raise HTTPException(status_code=400, detail=f"Invalid image: {e}")
 
     try:
+        loop = asyncio.get_event_loop()
+
         # 1. DR Grading
-        dr_grade, confidence, dr_grade_desc = diagnosis_service.predict_dr(image)
-        logger.info(f"[{trace_id}] DR Grading complete: {dr_grade_desc}")
+        t1 = datetime.now()
+        dr_grade, confidence, dr_grade_desc = await loop.run_in_executor(
+            None, diagnosis_service.predict_dr, image
+        )
+        t2 = datetime.now()
+        logger.info(f"[{trace_id}] DR Grading complete: {dr_grade_desc} (Time: {(t2-t1).total_seconds():.2f}s)")
 
         # 2. Lesion Description
         try:
-            lesion_description = diagnosis_service.analyze_lesion(image, dr_grade_desc)
-            logger.info(f"[{trace_id}] Lesion description complete")
+            t3 = datetime.now()
+            lesion_description = await loop.run_in_executor(
+                None, diagnosis_service.analyze_lesion, image, dr_grade_desc
+            )
+            t4 = datetime.now()
+            logger.info(f"[{trace_id}] Lesion description complete (Time: {(t4-t3).total_seconds():.2f}s)")
         except Exception as e:
             logger.error(f"[{trace_id}] Lesion analysis failed: {e}")
             lesion_description = f"Could not generate description. Diagnosed as {dr_grade_desc}."
@@ -65,8 +75,12 @@ async def diagnose(
         structured_report = {}
         if request_config.enable_rag:
             try:
-                structured_report = diagnosis_service.rag_reasoning(dr_grade_desc, lesion_description)
-                logger.info(f"[{trace_id}] RAG reasoning complete")
+                t5 = datetime.now()
+                structured_report = await loop.run_in_executor(
+                    None, diagnosis_service.rag_reasoning, dr_grade_desc, lesion_description
+                )
+                t6 = datetime.now()
+                logger.info(f"[{trace_id}] RAG reasoning complete (Time: {(t6-t5).total_seconds():.2f}s)")
             except Exception as e:
                 logger.error(f"[{trace_id}] RAG failed: {e}")
                 structured_report = {
@@ -82,6 +96,7 @@ async def diagnose(
             }
 
         processing_time = (datetime.now() - start_time).total_seconds()
+        logger.info(f"[{trace_id}] Total processing time: {processing_time:.2f}s")
         
         return DiagnosisResponse(
             trace_id=trace_id,
