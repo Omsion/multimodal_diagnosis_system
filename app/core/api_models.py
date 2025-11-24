@@ -108,6 +108,7 @@ class QwenVLAPIClient:
         """
         try:
             from openai import OpenAI
+            import time
         except ImportError:
             logger.error("未安装openai库，请运行 pip install openai")
             yield {"type": "error", "content": "系统错误：缺少openai依赖"}
@@ -117,66 +118,93 @@ class QwenVLAPIClient:
             yield {"type": "error", "content": "配置错误：缺少DASHSCOPE_API_KEY"}
             return
 
+        # 准备图像数据（在重试循环外，避免重复处理）
         try:
-            # 将图像转换为base64
             buffered = BytesIO()
             image.save(buffered, format="PNG")
             img_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
             img_data = f"data:image/png;base64,{img_str}"
-            
-            # 构建Prompt
-            prompt = self._build_medical_prompt(dr_grade_desc)
-            
-            client = OpenAI(
-                api_key=self.api_key,
-                base_url=self.base_url,
-            )
-
-            # 流式调用配置
-            extra_body = {}
-            if enable_thinking:
-                extra_body['enable_thinking'] = True
-                extra_body['thinking_budget'] = thinking_budget
-
-            completion = client.chat.completions.create(
-                model=self.model_name,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "image_url", "image_url": {"url": img_data}},
-                            {"type": "text", "text": prompt},
-                        ],
-                    }
-                ],
-                stream=True,
-                extra_body=extra_body
-            )
-            
-            # 处理流式响应
-            for chunk in completion:
-                # 如果chunk.choices为空，跳过（可能是usage信息）
-                if not chunk.choices:
-                    continue
-                
-                delta = chunk.choices[0].delta
-                
-                # 处理思考过程
-                if hasattr(delta, 'reasoning_content') and delta.reasoning_content is not None:
-                    yield {
-                        "type": "reasoning",
-                        "content": delta.reasoning_content
-                    }
-                # 处理回复内容
-                elif hasattr(delta, 'content') and delta.content:
-                    yield {
-                        "type": "answer",
-                        "content": delta.content
-                    }
-                    
         except Exception as e:
-            logger.error(f"Qwen-VL API流式处理异常: {e}")
-            yield {"type": "error", "content": f"处理异常: {str(e)}"}
+            logger.error(f"图像编码失败: {e}")
+            yield {"type": "error", "content": f"图像处理失败: {str(e)}"}
+            return
+        
+        # 构建Prompt
+        prompt = self._build_medical_prompt(dr_grade_desc)
+        
+        # 重试机制
+        max_retries = settings.API_MAX_RETRIES
+        retry_delay = settings.API_RETRY_DELAY
+        
+        for attempt in range(max_retries):
+            try:
+                client = OpenAI(
+                    api_key=self.api_key,
+                    base_url=self.base_url,
+                    timeout=settings.API_TIMEOUT
+                )
+
+                # 流式调用配置
+                extra_body = {}
+                if enable_thinking:
+                    extra_body['enable_thinking'] = True
+                    extra_body['thinking_budget'] = thinking_budget
+
+                completion = client.chat.completions.create(
+                    model=self.model_name,
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "image_url", "image_url": {"url": img_data}},
+                                {"type": "text", "text": prompt},
+                            ],
+                        }
+                    ],
+                    stream=True,
+                    extra_body=extra_body
+                )
+                
+                # 处理流式响应
+                for chunk in completion:
+                    # 如果chunk.choices为空，跳过（可能是usage信息）
+                    if not chunk.choices:
+                        continue
+                    
+                    delta = chunk.choices[0].delta
+                    
+                    # 处理思考过程
+                    if hasattr(delta, 'reasoning_content') and delta.reasoning_content is not None:
+                        yield {
+                            "type": "reasoning",
+                            "content": delta.reasoning_content
+                        }
+                    # 处理回复内容
+                    elif hasattr(delta, 'content') and delta.content:
+                        yield {
+                            "type": "answer",
+                            "content": delta.content
+                        }
+                
+                # 成功完成，退出重试循环
+                return
+                        
+            except Exception as e:
+                error_msg = str(e)
+                logger.error(f"Qwen-VL API流式处理异常 (尝试 {attempt + 1}/{max_retries}): {error_msg}")
+                
+                # 如果是最后一次尝试，返回错误
+                if attempt == max_retries - 1:
+                    logger.error(f"Qwen-VL API调用失败，已重试{max_retries}次")
+                    logger.error(f"API配置 - Base URL: {self.base_url}, Model: {self.model_name}")
+                    logger.error(f"API Key配置: {'已设置' if self.api_key else '未设置'}")
+                    yield {"type": "error", "content": f"处理异常（已重试{max_retries}次）: {error_msg}"}
+                else:
+                    # 等待后重试
+                    logger.info(f"将在{retry_delay}秒后重试...")
+                    time.sleep(retry_delay)
+                    # 指数退避
+                    retry_delay *= 2
 
 
     def _build_medical_prompt(self, dr_grade_desc: str) -> str:

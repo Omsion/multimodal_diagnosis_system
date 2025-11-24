@@ -97,6 +97,7 @@ class Settings(BaseSettings):
     )
     CHUNK_SIZE: int = Field(500, description="文档分块大小")
     CHUNK_OVERLAP: int = Field(50, description="文档分块重叠大小")
+
     TOP_K: int = Field(3, description="RAG检索返回的top-k文档数量")
 
     # === API模型配置 ===
@@ -106,6 +107,11 @@ class Settings(BaseSettings):
     QWEN_BASE_URL: str = Field("https://dashscope.aliyuncs.com/compatible-mode/v1", description="Qwen API Base URL")
     QWEN_VL_MODEL_NAME: str = Field("qwen3-vl-flash", description="Qwen-VL API模型名称")
     DEEPSEEK_MODEL_NAME: str = Field("deepseek-chat", description="DeepSeek API模型名称")
+    
+    # API 错误处理配置
+    API_TIMEOUT: int = Field(60, description="API请求超时时间(秒)")
+    API_MAX_RETRIES: int = Field(3, description="API请求最大重试次数")
+    API_RETRY_DELAY: int = Field(2, description="API重试延迟时间(秒)")
 
     # === 缓存配置 ===
     ENABLE_CACHE: bool = Field(True, description="启用缓存")
