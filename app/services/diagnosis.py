@@ -142,5 +142,35 @@ class DiagnosisService:
         
         return structured_report
 
+    def get_loaded_models_info(self) -> Dict[str, int]:
+        """
+        Return counts of local models and API services.
+        """
+        local_count = 0
+        api_count = 0
+
+        # 1. DR Grader (Always Local)
+        if self.dr_grader:
+            local_count += 1
+
+        # 2. Lesion Describer
+        if self.lesion_describer:
+            if settings.USE_API_MODELS:
+                api_count += 1
+            else:
+                local_count += 1
+
+        # 3. RAG Chain
+        if self.rag_chain:
+            if settings.USE_API_MODELS:
+                api_count += 1
+            else:
+                local_count += 1
+                
+        return {
+            "local_models_loaded": local_count,
+            "api_services_active": api_count
+        }
+
 # Global instance
 diagnosis_service = DiagnosisService()

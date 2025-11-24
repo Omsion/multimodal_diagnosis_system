@@ -158,7 +158,10 @@ async def get_metrics():
         # Disk
         disk = psutil.disk_usage('/')
         
+        model_info = diagnosis_service.get_loaded_models_info()
+        
         return {
+            "system_mode": "API Mode" if settings.USE_API_MODELS else "Local Mode",
             "cpu_usage": f"{cpu_percent}%",
             "memory_used": f"{memory.percent}%",
             "memory_available": f"{memory.available / (1024**3):.1f}GB",
@@ -166,11 +169,8 @@ async def get_metrics():
             "gpu_load": gpu_info.get("load", "N/A") if gpu_info["available"] else "N/A",
             "gpu_memory": gpu_info.get("memory_percent", "N/A") if gpu_info["available"] else "N/A",
             "uptime": "Online",
-            "models_loaded": sum([
-                diagnosis_service.dr_grader is not None,
-                diagnosis_service.lesion_describer is not None,
-                diagnosis_service.rag_chain is not None
-            ])
+            "local_models_loaded": model_info["local_models_loaded"],
+            "api_services_active": model_info["api_services_active"]
         }
     except Exception as e:
         logger.error(f"Failed to get metrics: {e}")
