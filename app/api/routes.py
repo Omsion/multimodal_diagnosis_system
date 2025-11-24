@@ -227,19 +227,58 @@ async def diagnose_stream(
                 lesion_description = f"Could not generate description. Diagnosed as {dr_grade_desc}."
                 yield f"event: error\ndata: {json.dumps({'message': str(e)}, ensure_ascii=False)}\n\n"
 
-            # Step 3: RAG Reasoning
+            # Step 3: RAG Reasoning (Streaming)
             structured_report = {}
             if request_config.enable_rag:
-                yield f"event: progress\ndata: {json.dumps({'stage': 'rag_reasoning', 'message': 'DeepSeek-R1 生成诊断报告...'}, ensure_ascii=False)}\n\n"
+                yield f"event: progress\ndata: {json.dumps({'stage': 'rag_reasoning', 'message': 'DeepSeek-R1 正在进行思维链推理...'}, ensure_ascii=False)}\n\n"
                 
                 try:
                     t5 = datetime.now()
-                    structured_report = await loop.run_in_executor(
-                        None, diagnosis_service.rag_reasoning, dr_grade_desc, lesion_description
-                    )
+                    
+                    full_response = ""
+                    thinking_process = ""
+                    json_part = ""
+                    in_json = False
+                    
+                    async for chunk in diagnosis_service.rag_reasoning_stream(dr_grade_desc, lesion_description):
+                        full_response += chunk
+                        
+                        # Simple heuristic to separate Thinking from JSON
+                        if "JSON Report:" in full_response and not in_json:
+                            parts = full_response.split("JSON Report:", 1)
+                            thinking_process = parts[0].replace("Thinking Process:", "").strip()
+                            json_part = parts[1]
+                            in_json = True
+                            # Send the final part of thinking if any
+                            yield f"event: rag_reasoning\ndata: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
+                        elif in_json:
+                            json_part += chunk
+                        else:
+                            # Still in thinking process
+                            yield f"event: rag_reasoning\ndata: {json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
+
                     t6 = datetime.now()
                     logger.info(f"[{trace_id}] RAG reasoning complete (Time: {(t6-t5).total_seconds():.2f}s)")
                     
+                    # Parse the accumulated JSON part
+                    import re
+                    try:
+                        # Clean up JSON string (remove markdown code blocks if present)
+                        clean_json = json_part.strip()
+                        if clean_json.startswith("```json"):
+                            clean_json = clean_json[7:]
+                        if clean_json.endswith("```"):
+                            clean_json = clean_json[:-3]
+                        
+                        structured_report = json.loads(clean_json)
+                        structured_report["cot_reasoning"] = thinking_process # Add thinking process to report
+                    except json.JSONDecodeError:
+                         structured_report = {
+                            "cot_reasoning": thinking_process,
+                            "recommendations": [],
+                            "traceability": "Failed to parse JSON report"
+                        }
+
                     yield f"event: rag_result\ndata: {json.dumps(structured_report, ensure_ascii=False)}\n\n"
                     
                 except Exception as e:

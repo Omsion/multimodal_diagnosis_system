@@ -117,9 +117,25 @@ class DiagnosisService:
         
         return self.lesion_describer.generate_description(image, dr_grade_desc)
 
+    async def rag_reasoning_stream(self, dr_grade_desc: str, lesion_description: str):
+        """
+        Perform RAG reasoning with streaming.
+        Yields chunks of the response.
+        """
+        if not self.rag_chain:
+            raise RuntimeError("RAG chain not initialized")
+
+        rag_input = {
+            "dr_grade_desc": dr_grade_desc,
+            "lesion_description": lesion_description
+        }
+        
+        async for chunk in self.rag_chain.astream(rag_input):
+            yield chunk
+
     def rag_reasoning(self, dr_grade_desc: str, lesion_description: str) -> Dict[str, Any]:
         """
-        Perform RAG reasoning.
+        Perform RAG reasoning (Synchronous wrapper for compatibility).
         """
         if not self.rag_chain:
             raise RuntimeError("RAG chain not initialized")
@@ -131,9 +147,24 @@ class DiagnosisService:
         
         report_str = self.rag_chain.invoke(rag_input)
         
+        # Try to parse JSON from the new format (Thinking Process ... JSON Report ...)
+        import re
         try:
-            structured_report = json.loads(report_str)
-        except json.JSONDecodeError:
+            # Extract JSON part
+            json_match = re.search(r'JSON Report:\s*(\{.*\})', report_str, re.DOTALL)
+            if json_match:
+                json_str = json_match.group(1)
+                structured_report = json.loads(json_str)
+                
+                # Extract Thinking Process
+                thinking_match = re.search(r'Thinking Process:\s*(.*?)\s*JSON Report:', report_str, re.DOTALL)
+                if thinking_match:
+                    structured_report["cot_reasoning"] = thinking_match.group(1).strip()
+            else:
+                # Fallback: try to parse the whole string as JSON (old format compatibility)
+                structured_report = json.loads(report_str)
+                
+        except (json.JSONDecodeError, AttributeError):
             structured_report = {
                 "cot_reasoning": report_str,
                 "recommendations": [],
